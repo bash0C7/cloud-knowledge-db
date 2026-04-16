@@ -11,7 +11,7 @@ module CloudKnowledgeDb
 
     # @param prompt [String] full prompt text
     # @return [String] claude output
-    def run(prompt)
+    def execute(prompt)
       output = ""
       # chdir to /tmp to avoid CLAUDE.md contamination from any project directory
       Open3.popen3("claude", "--model", @model, "-p", "-", chdir: "/tmp") do |stdin, stdout, stderr, wt|

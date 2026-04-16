@@ -24,7 +24,7 @@ module CloudKnowledgeDb
     def summarize(provider_short:, date:, translated_articles:)
       user_content = build_user_content(provider_short, date, translated_articles)
       prompt = "#{SYSTEM_PROMPT}\n\n---\n\n#{user_content}"
-      @runner.run(prompt)
+      @runner.execute(prompt)
     end
 
     private

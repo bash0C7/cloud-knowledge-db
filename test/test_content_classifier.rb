@@ -5,7 +5,7 @@ require 'cloud_knowledge_db/content_classifier'
 class ContentClassifierTest < Test::Unit::TestCase
   def setup
     @classifier = CloudKnowledgeDb::ContentClassifier.new(model: 'haiku')
-    @classifier.instance_variable_get(:@runner).define_singleton_method(:run) { |_prompt| 'aws' }
+    @classifier.instance_variable_get(:@runner).define_singleton_method(:execute) { |_prompt| 'aws' }
   end
 
   def test_classify_returns_normalized_provider_label
@@ -14,7 +14,7 @@ class ContentClassifierTest < Test::Unit::TestCase
   end
 
   def test_unknown_label_returns_none
-    @classifier.instance_variable_get(:@runner).define_singleton_method(:run) { |_prompt| 'garbage' }
+    @classifier.instance_variable_get(:@runner).define_singleton_method(:execute) { |_prompt| 'garbage' }
     label = @classifier.classify(title: 't', body: 'b', tags: [])
     assert_equal 'none', label
   end

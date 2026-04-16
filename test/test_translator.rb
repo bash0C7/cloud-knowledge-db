@@ -5,8 +5,8 @@ require 'cloud_knowledge_db/translator'
 class TranslatorTest < Test::Unit::TestCase
   def setup
     @translator = CloudKnowledgeDb::Translator.new(model: 'haiku')
-    # Stub ClaudeRunner#run to return fixed text
-    @translator.instance_variable_get(:@runner).define_singleton_method(:run) { |_prompt| '翻訳された日本語テキスト' }
+    # Stub ClaudeRunner#execute to return fixed text
+    @translator.instance_variable_get(:@runner).define_singleton_method(:execute) { |_prompt| '翻訳された日本語テキスト' }
   end
 
   def test_translate_returns_text_from_runner
@@ -16,7 +16,7 @@ class TranslatorTest < Test::Unit::TestCase
 
   def test_prompt_includes_system_prompt_and_article
     captured = nil
-    @translator.instance_variable_get(:@runner).define_singleton_method(:run) { |prompt| captured = prompt; 'ok' }
+    @translator.instance_variable_get(:@runner).define_singleton_method(:execute) { |prompt| captured = prompt; 'ok' }
     @translator.translate('article body')
     assert_match(/English-to-Japanese translator/, captured)
     assert_match(/article body/, captured)

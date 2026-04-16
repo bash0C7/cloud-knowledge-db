@@ -20,7 +20,7 @@ module CloudKnowledgeDb
     # @return [String] Japanese translation
     def translate(article_md)
       prompt = "#{SYSTEM_PROMPT}\n\n---\n\n#{article_md}"
-      @runner.run(prompt)
+      @runner.execute(prompt)
     end
   end
 end

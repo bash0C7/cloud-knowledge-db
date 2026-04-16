@@ -18,7 +18,7 @@ module CloudKnowledgeDb
     def classify(title:, body:, tags:)
       content = "TITLE: #{title}\nTAGS: #{tags.join(', ')}\nBODY: #{body[0, 800]}"
       prompt = "#{SYSTEM_PROMPT}\n\n---\n\n#{content}"
-      raw = @runner.run(prompt).strip.downcase
+      raw = @runner.execute(prompt).strip.downcase
       LABELS.include?(raw) ? raw : 'none'
     end
   end

@@ -5,7 +5,7 @@ require 'cloud_knowledge_db/daily_summarizer'
 class DailySummarizerTest < Test::Unit::TestCase
   def setup
     @summarizer = CloudKnowledgeDb::DailySummarizer.new(model: 'opus')
-    @summarizer.instance_variable_get(:@runner).define_singleton_method(:run) { |_prompt| "# 2026-04-15 AWS まとめ\n\n- 記事1" }
+    @summarizer.instance_variable_get(:@runner).define_singleton_method(:execute) { |_prompt| "# 2026-04-15 AWS まとめ\n\n- 記事1" }
   end
 
   def test_summarize_returns_markdown
@@ -17,7 +17,7 @@ class DailySummarizerTest < Test::Unit::TestCase
 
   def test_prompt_includes_articles
     captured = nil
-    @summarizer.instance_variable_get(:@runner).define_singleton_method(:run) { |prompt| captured = prompt; 'ok' }
+    @summarizer.instance_variable_get(:@runner).define_singleton_method(:execute) { |prompt| captured = prompt; 'ok' }
     @summarizer.summarize(provider_short: 'aws', date: '2026-04-15', translated_articles: [{ title: 'T1', url: 'U1', body_ja: 'B1' }])
     assert_match(/T1/, captured)
     assert_match(/U1/, captured)
