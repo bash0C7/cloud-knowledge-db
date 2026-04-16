@@ -1,0 +1,7 @@
+/vendor/bundle/
+/.bundle/
+*.db
+*.db-shm
+*.db-wal
+db/last_run.yml
+.DS_Store
