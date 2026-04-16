@@ -1,8 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git init *)",
-      "Bash(mkdir -p docs/superpowers/specs)"
+      "Bash(bundle exec rake *)",
+      "Bash(bundle exec ruby *)",
+      "Bash(scutil --get LocalHostName)",
+      "Bash(/usr/bin/security find-generic-password *)"
     ]
   }
 }
