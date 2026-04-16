@@ -1,0 +1,14 @@
+db_path: db/cloud_knowledge_test.db
+
+esa:
+  team: bist
+  wip: true
+  sources:
+    aws_blog:
+      category: test/cloud-trunk-changes/aws
+
+models:
+  translator:       haiku
+  classifier:       haiku
+  daily_summarizer: haiku
+  default:          haiku

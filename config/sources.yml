@@ -1,0 +1,7 @@
+sources:
+  aws_blog:
+    short_name: aws
+    feed_url: https://aws.amazon.com/blogs/aws/feed/
+    adapter: rss
+    source_article: aws/blogs/news
+    source_original: aws/blogs/news/original

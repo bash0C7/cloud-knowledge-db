@@ -1,0 +1,17 @@
+db_path: db/cloud_knowledge.db
+db_copy_to: ~/Library/Mobile Documents/com~apple~CloudDocs/chiebukuro-mcp/db/cloud_knowledge.db
+
+allowed_write_host: MacBook-Air-M3
+
+esa:
+  team: bash-trunk-changes
+  wip: false
+  sources:
+    aws_blog:
+      category: production/cloud-trunk-changes/aws
+
+models:
+  translator:       haiku
+  classifier:       haiku
+  daily_summarizer: opus
+  default:          sonnet
