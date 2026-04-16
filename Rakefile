@@ -66,16 +66,13 @@ end
 
 def do_translate(key, dir:)
   require 'bundler/setup'
-  require 'anthropic'
   require_relative 'lib/cloud_knowledge_db/translator'
-  require_relative 'lib/cloud_knowledge_db/model_resolver'
 
   src_cfg = cfg['sources'][key] or abort "unknown source: #{key}"
   return if src_cfg['adapter'] == 'classmethod'
 
-  client     = ::Anthropic::Client.new
-  resolver   = CloudKnowledgeDb::ModelResolver.new(client: client)
-  translator = CloudKnowledgeDb::Translator.new(client: client, model_resolver: resolver)
+  model      = cfg['models']['translator'] || 'haiku'
+  translator = CloudKnowledgeDb::Translator.new(model: model)
 
   Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-original-*.md")).each do |orig_path|
     ja_path = orig_path.sub('-original-', '-')
@@ -122,10 +119,8 @@ end
 
 def do_esa(key, dir:)
   require 'bundler/setup'
-  require 'anthropic'
   require_relative 'lib/cloud_knowledge_db/esa_writer'
   require_relative 'lib/cloud_knowledge_db/daily_summarizer'
-  require_relative 'lib/cloud_knowledge_db/model_resolver'
 
   src_cfg = cfg['sources'][key] or abort "unknown source: #{key}"
 
@@ -141,9 +136,7 @@ def do_esa(key, dir:)
     wip:      cfg['esa']['wip']
   )
 
-  client     = ::Anthropic::Client.new
-  resolver   = CloudKnowledgeDb::ModelResolver.new(client: client)
-  summarizer = CloudKnowledgeDb::DailySummarizer.new(client: client, model_resolver: resolver)
+  summarizer = CloudKnowledgeDb::DailySummarizer.new(model: cfg['models']['daily_summarizer'] || 'opus')
 
   ja_paths = Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-*.md"))
                 .reject { |p| File.basename(p).include?('-original-') }

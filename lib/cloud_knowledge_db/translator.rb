@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require_relative 'claude_runner'
 
 module CloudKnowledgeDb
   class Translator
@@ -11,21 +12,15 @@ module CloudKnowledgeDb
         - Output ONLY the translation. Do not add explanations or meta commentary.
     EN
 
-    MAX_TOKENS = 4096
-
-    def initialize(client:, model_resolver:)
-      @client         = client
-      @model_resolver = model_resolver
+    def initialize(model: 'haiku')
+      @runner = ClaudeRunner.new(model: model)
     end
 
+    # @param article_md [String] English article
+    # @return [String] Japanese translation
     def translate(article_md)
-      response = @client.messages.create(
-        model:    @model_resolver.resolve(:haiku),
-        system:   [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: article_md }],
-        max_tokens: MAX_TOKENS
-      )
-      response.content.first.text
+      prompt = "#{SYSTEM_PROMPT}\n\n---\n\n#{article_md}"
+      @runner.run(prompt)
     end
   end
 end

@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require_relative 'claude_runner'
 
 module CloudKnowledgeDb
   class ContentClassifier
@@ -8,22 +9,16 @@ module CloudKnowledgeDb
     EN
 
     LABELS = %w[aws gcp gws gitlab none].freeze
-    MAX_TOKENS = 16
 
-    def initialize(client:, model_resolver:)
-      @client         = client
-      @model_resolver = model_resolver
+    def initialize(model: 'haiku')
+      @runner = ClaudeRunner.new(model: model)
     end
 
+    # @return [String] one of LABELS
     def classify(title:, body:, tags:)
       content = "TITLE: #{title}\nTAGS: #{tags.join(', ')}\nBODY: #{body[0, 800]}"
-      response = @client.messages.create(
-        model:    @model_resolver.resolve(:haiku),
-        system:   [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: content }],
-        max_tokens: MAX_TOKENS
-      )
-      raw = response.content.first.text.strip.downcase
+      prompt = "#{SYSTEM_PROMPT}\n\n---\n\n#{content}"
+      raw = @runner.run(prompt).strip.downcase
       LABELS.include?(raw) ? raw : 'none'
     end
   end

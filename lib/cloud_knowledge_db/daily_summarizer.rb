@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require_relative 'claude_runner'
 
 module CloudKnowledgeDb
   class DailySummarizer
@@ -12,22 +13,18 @@ module CloudKnowledgeDb
         - 出力は本文Markdownのみ。前置きや結語は不要。
     JA
 
-    MAX_TOKENS = 4096
-
-    def initialize(client:, model_resolver:)
-      @client         = client
-      @model_resolver = model_resolver
+    def initialize(model: 'opus')
+      @runner = ClaudeRunner.new(model: model)
     end
 
+    # @param provider_short [String] e.g. "aws"
+    # @param date [String] YYYY-MM-DD
+    # @param translated_articles [Array<Hash>] each: {title:, url:, body_ja:}
+    # @return [String] Markdown summary article
     def summarize(provider_short:, date:, translated_articles:)
       user_content = build_user_content(provider_short, date, translated_articles)
-      response = @client.messages.create(
-        model:    @model_resolver.resolve(:opus),
-        system:   [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: user_content }],
-        max_tokens: MAX_TOKENS
-      )
-      response.content.first.text
+      prompt = "#{SYSTEM_PROMPT}\n\n---\n\n#{user_content}"
+      @runner.run(prompt)
     end
 
     private
