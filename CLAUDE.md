@@ -30,7 +30,7 @@ Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace / GitL
 | `lib/cloud_knowledge_db/content_classifier.rb` | Classmethod article tag classification (Haiku) |
 | `lib/cloud_knowledge_db/esa_writer.rb` | esa API posting |
 | `lib/cloud_knowledge_db/trunk_bookmark.rb` | Two-stage bookmark management (load/save/mark_started/mark_completed/status/recommended_since_floor) |
-| `lib/cloud_knowledge_db/host_guard.rb` | LocalHostName check — blocks writes on unauthorized hosts |
+| `lib/cloud_knowledge_db/config.rb` (`Config.ensure_write_host!`) | LocalHostName check — blocks writes on unauthorized hosts (no separate host_guard.rb file) |
 | `lib/cloud_knowledge_db/model_resolver.rb` | Runtime model resolution via GET /v1/models |
 | `lib/cloud_knowledge_db/config.rb` | APP_ENV config load |
 

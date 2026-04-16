@@ -319,6 +319,28 @@ namespace :db do
     puts "Found #{hits.uniq.length} contaminated ids"
   end
 
+  desc 'Show DB statistics (row counts per source)'
+  task :stats do
+    require 'bundler/setup'
+    require 'sqlite3'
+    require 'sqlite_vec'
+
+    db_path = File.expand_path(cfg['db_path'], __dir__)
+    abort "DB not found: #{db_path}" unless File.exist?(db_path)
+    db = SQLite3::Database.new(db_path)
+    db.enable_load_extension(true)
+    SqliteVec.load(db)
+
+    total = db.get_first_value('SELECT COUNT(*) FROM memories')
+    puts "Total memories: #{total}"
+    puts "---"
+    rows = db.execute('SELECT source, COUNT(*) c FROM memories GROUP BY source ORDER BY c DESC')
+    rows.each { |src, c| puts "  #{src}: #{c}" }
+    puts "---"
+    vec_count = db.get_first_value('SELECT COUNT(*) FROM memories_vec')
+    puts "Total vectors: #{vec_count}"
+  end
+
   desc 'DESTRUCTIVE delete by IDS=1,2,3'
   task :delete_polluted do
     CloudKnowledgeDb::Config.ensure_write_host!
