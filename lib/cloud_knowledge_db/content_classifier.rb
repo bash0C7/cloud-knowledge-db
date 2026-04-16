@@ -8,7 +8,7 @@ module CloudKnowledgeDb
     EN
 
     LABELS = %w[aws gcp gws gitlab none].freeze
-    MAX_TOKENS = 8
+    MAX_TOKENS = 16
 
     def initialize(client:, model_resolver:)
       @client         = client

@@ -30,6 +30,7 @@ module CloudKnowledgeDb
       })
 
       res  = http.request(req)
+      raise "esa API error (#{res.code}): #{res.body}" if res.code.to_i >= 400
       body = JSON.parse(res.body)
 
       sleep RATE_WAIT
