@@ -4,8 +4,10 @@ esa:
   team: bist
   wip: true
   sources:
-    aws_blog:
-      category: development/cloud-trunk-changes/aws
+    aws_blog:    { category: development/cloud-trunk-changes/aws }
+    gcp_blog:    { category: development/cloud-trunk-changes/gcp }
+    gws_blog:    { category: development/cloud-trunk-changes/gws }
+    gitlab_blog: { category: development/cloud-trunk-changes/gitlab }
 
 models:
   translator:       haiku

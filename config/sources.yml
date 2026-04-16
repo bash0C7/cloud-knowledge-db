@@ -5,3 +5,34 @@ sources:
     adapter: rss
     source_article: aws/blogs/news
     source_original: aws/blogs/news/original
+
+  gcp_blog:
+    short_name: gcp
+    feed_url: https://cloud.google.com/blog/products/gcp/rss
+    adapter: rss
+    source_article: gcp/blogs/products
+    source_original: gcp/blogs/products/original
+
+  gws_blog:
+    short_name: gws
+    feed_url: https://workspace.google.com/blog/rss
+    adapter: rss
+    source_article: gws/blogs/all
+    source_original: gws/blogs/all/original
+
+  gitlab_blog:
+    short_name: gitlab
+    feed_url: https://about.gitlab.com/atom.xml
+    adapter: rss
+    source_article: gitlab/blogs/all
+    source_original: gitlab/blogs/all/original
+
+  classmethod_blog:
+    short_name: classmethod
+    feed_url: https://dev.classmethod.jp/feed/
+    adapter: classmethod
+    tag_to_source:
+      AWS:          aws/classmethod
+      "Google Cloud": gcp/classmethod
+      Workspace:    gws/classmethod
+      GitLab:       gitlab/classmethod

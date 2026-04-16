@@ -7,8 +7,10 @@ esa:
   team: bash-trunk-changes
   wip: false
   sources:
-    aws_blog:
-      category: production/cloud-trunk-changes/aws
+    aws_blog:    { category: production/cloud-trunk-changes/aws }
+    gcp_blog:    { category: production/cloud-trunk-changes/gcp }
+    gws_blog:    { category: production/cloud-trunk-changes/gws }
+    gitlab_blog: { category: production/cloud-trunk-changes/gitlab }
 
 models:
   translator:       haiku
