@@ -18,18 +18,17 @@ module CloudKnowledgeDb
     end
 
     # @param prompt [String] full prompt text
-    # @return [String] ollama output, stripped
+    # @return [String] ollama stdout only, stripped
     def execute(prompt)
-      output = ''
-      Open3.popen3('ollama', 'run', @model) do |stdin, stdout, stderr, wt|
-        stdin.write(prompt)
-        stdin.close
-        t1 = Thread.new { output = stdout.read }
-        stderr.read
-        t1.join
-        wt.value
-      end
-      output.strip
+      # --hidethinking + --think=false: stop gemma family from emitting chain-of-thought.
+      # --nowordwrap: stop ollama from injecting ANSI cursor-rewind escapes.
+      out, _status = Open3.capture2(
+        'ollama', 'run',
+        '--hidethinking', '--think=false', '--nowordwrap',
+        @model,
+        stdin_data: prompt
+      )
+      out.strip
     end
   end
 end
