@@ -11,6 +11,13 @@ module CloudKnowledgeDb
       ENV.fetch('OLLAMA_HOST', 'http://localhost:11434')
     end
 
+    # ENV OLLAMA_THINK=true → enable model's internal chain-of-thought
+    # (gemma family). Output stays clean either way; only latency/quality
+    # are affected. Default is false for speed.
+    def self.think_mode?
+      ENV.fetch('OLLAMA_THINK', 'false').downcase == 'true'
+    end
+
     def self.ensure_available!
       uri = URI.join(host, '/api/tags')
       res = Net::HTTP.get_response(uri)
@@ -31,7 +38,7 @@ module CloudKnowledgeDb
     def execute(prompt)
       uri = URI.join(self.class.host, '/api/generate')
       req = Net::HTTP::Post.new(uri, 'Content-Type' => 'application/json')
-      req.body = JSON.generate(model: @model, prompt: prompt, stream: false, think: false)
+      req.body = JSON.generate(model: @model, prompt: prompt, stream: false, think: self.class.think_mode?)
       res = Net::HTTP.start(uri.hostname, uri.port, read_timeout: READ_TIMEOUT_SEC) { |h| h.request(req) }
       raise RuntimeError, "ollama generate failed: HTTP #{res.code} #{res.body[0, 300]}" unless res.is_a?(Net::HTTPSuccess)
       JSON.parse(res.body).fetch('response', '').strip
