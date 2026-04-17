@@ -67,12 +67,14 @@ end
 def do_translate(key, dir:)
   require 'bundler/setup'
   require_relative 'lib/cloud_knowledge_db/translator'
+  require_relative 'lib/cloud_knowledge_db/translation_registry'
 
   src_cfg = cfg['sources'][key] or abort "unknown source: #{key}"
   return if src_cfg['adapter'] == 'classmethod'
 
   model      = cfg['models']['translator'] || 'haiku'
   translator = CloudKnowledgeDb::Translator.new(model: model)
+  registry   = build_translation_registry
 
   Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-original-*.md")).each do |orig_path|
     ja_path = orig_path.sub('-original-', '-')
@@ -80,6 +82,11 @@ def do_translate(key, dir:)
 
     fm, body = parse_md(orig_path)
     next if fm.nil? || body.nil?
+
+    if registry.has_translation?(source: src_cfg['source_article'], url: fm['url'])
+      puts "translate: skip (already in DB) #{File.basename(orig_path)}"
+      next
+    end
 
     puts "translate: #{File.basename(orig_path)}"
     ja_body = translator.translate(body)
@@ -92,6 +99,20 @@ def do_translate(key, dir:)
     )
     write_md(dir, File.basename(ja_path), ja_fm, ja_body)
   end
+end
+
+def build_translation_registry
+  require_relative 'lib/cloud_knowledge_db/translation_registry'
+  db_path = File.expand_path(cfg['db_path'], __dir__)
+  db = nil
+  if File.exist?(db_path)
+    require 'sqlite3'
+    require 'sqlite_vec'
+    db = SQLite3::Database.new(db_path)
+    db.enable_load_extension(true)
+    SqliteVec.load(db)
+  end
+  CloudKnowledgeDb::TranslationRegistry.new(db)
 end
 
 def do_import(key, dir:)
@@ -285,7 +306,7 @@ namespace :db do
     db.enable_load_extension(true)
     SqliteVec.load(db)
 
-    markers = ['翻訳できません', '出力フォーマット', 'no content', '本文がありません', '空']
+    markers = ['翻訳できません', '出力フォーマット', 'no content', '本文がありません']
     bad_ids = []
     markers.each do |m|
       rows = db.execute('SELECT id, source FROM memories WHERE content LIKE ?', ["%#{m}%"])

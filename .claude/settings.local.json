@@ -13,7 +13,8 @@
       "Bash(APP_ENV=production bundle exec rake db:scan_contamination)",
       "Bash(APP_ENV=production bundle exec rake esa:find_duplicates DATE=2026-04-16)",
       "Bash(APP_ENV=production bundle exec rake esa:find_duplicates DATE=2026-04-15)",
-      "Bash(APP_ENV=production bundle exec rake db:stats)"
+      "Bash(APP_ENV=production bundle exec rake db:stats)",
+      "Bash(APP_ENV=test bundle exec rake test TEST=test/test_translation_registry.rb)"
     ]
   }
 }
