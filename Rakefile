@@ -2,6 +2,7 @@
 require 'rake/testtask'
 require_relative 'lib/cloud_knowledge_db/config'
 require_relative 'lib/cloud_knowledge_db/trunk_bookmark'
+require_relative 'lib/cloud_knowledge_db/ollama_runner'
 
 Rake::TestTask.new(:test) do |t|
   t.libs << 'test'
@@ -67,6 +68,7 @@ end
 TRANSLATION_CACHE_DIR = File.expand_path('db/cache/translated', __dir__)
 
 def do_translate(key, dir:)
+  CloudKnowledgeDb::OllamaRunner.ensure_available!
   require 'bundler/setup'
   require_relative 'lib/cloud_knowledge_db/translator'
   require_relative 'lib/cloud_knowledge_db/translation_cache'
@@ -406,6 +408,7 @@ task :daily do
   require 'time'
 
   CloudKnowledgeDb::Config.ensure_write_host!
+  CloudKnowledgeDb::OllamaRunner.ensure_available!
 
   before = ENV['BEFORE'] ? Date.parse(ENV['BEFORE']) : Date.today
 
