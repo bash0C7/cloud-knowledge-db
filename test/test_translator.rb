@@ -6,7 +6,7 @@ require 'cloud_knowledge_db/translator'
 class TranslatorTest < Test::Unit::TestCase
   def setup
     @fake = FakeRunner.new('翻訳された日本語テキスト')
-    @translator = CloudKnowledgeDb::Translator.new(model: 'gemma4')
+    @translator = CloudKnowledgeDb::Translator.new(provider: 'local_ollama', model: 'gemma4')
     @translator.instance_variable_set(:@runner, @fake)
   end
 
@@ -21,8 +21,10 @@ class TranslatorTest < Test::Unit::TestCase
     assert_match(/article body/, @fake.last_prompt)
   end
 
-  def test_default_model_is_gemma4
+  def test_default_is_local_ollama_gemma4
     t = CloudKnowledgeDb::Translator.new
-    assert_equal 'gemma4', t.instance_variable_get(:@runner).instance_variable_get(:@model)
+    r = t.instance_variable_get(:@runner)
+    assert_instance_of CloudKnowledgeDb::OllamaRunner, r
+    assert_equal 'gemma4', r.instance_variable_get(:@model)
   end
 end

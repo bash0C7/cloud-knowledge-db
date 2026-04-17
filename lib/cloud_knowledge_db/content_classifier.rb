@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-require_relative 'claude_runner'
+require_relative 'runner'
 
 module CloudKnowledgeDb
   class ContentClassifier
@@ -10,8 +10,8 @@ module CloudKnowledgeDb
 
     LABELS = %w[aws gcp gws gitlab none].freeze
 
-    def initialize(model: 'haiku')
-      @runner = ClaudeRunner.new(model: model)
+    def initialize(provider: 'claude', model: 'haiku')
+      @runner = Runner.build(provider: provider, model: model)
     end
 
     # @return [String] one of LABELS

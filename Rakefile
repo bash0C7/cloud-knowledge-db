@@ -76,8 +76,8 @@ def do_translate(key, dir:)
   src_cfg = cfg['sources'][key] or abort "unknown source: #{key}"
   return if src_cfg['adapter'] == 'classmethod'
 
-  model      = cfg['models']['translator'] || 'haiku'
-  translator = CloudKnowledgeDb::Translator.new(model: model)
+  m          = cfg['models']['translator']
+  translator = CloudKnowledgeDb::Translator.new(provider: m['provider'], model: m['model'])
   cache      = CloudKnowledgeDb::TranslationCache.new(TRANSLATION_CACHE_DIR)
 
   Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-original-*.md")).each do |orig_path|
@@ -147,7 +147,8 @@ def do_esa(key, dir:)
 
   esa_cfg = cfg.dig('esa', 'sources', key) or abort "no esa.sources.#{key} in env yml"
 
-  summarizer = CloudKnowledgeDb::DailySummarizer.new(model: cfg['models']['daily_summarizer'] || 'opus')
+  m          = cfg['models']['daily_summarizer']
+  summarizer = CloudKnowledgeDb::DailySummarizer.new(provider: m['provider'], model: m['model'])
 
   ja_paths = Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-*.md"))
                 .reject { |p| File.basename(p).include?('-original-') }

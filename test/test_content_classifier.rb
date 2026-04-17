@@ -6,7 +6,7 @@ require 'cloud_knowledge_db/content_classifier'
 class ContentClassifierTest < Test::Unit::TestCase
   def setup
     @fake = FakeRunner.new('aws')
-    @classifier = CloudKnowledgeDb::ContentClassifier.new(model: 'haiku')
+    @classifier = CloudKnowledgeDb::ContentClassifier.new(provider: 'claude', model: 'haiku')
     @classifier.instance_variable_set(:@runner, @fake)
   end
 

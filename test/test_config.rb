@@ -12,6 +12,6 @@ class ConfigTest < Test::Unit::TestCase
 
   def test_resolve_model_returns_short_name
     cfg = CloudKnowledgeDb::Config.load
-    assert_equal 'gemma4', cfg['models']['translator']
+    assert_equal({ 'provider' => 'local_ollama', 'model' => 'gemma4' }, cfg['models']['translator'])
   end
 end

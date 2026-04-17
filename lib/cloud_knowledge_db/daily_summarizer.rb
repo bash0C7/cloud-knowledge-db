@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-require_relative 'ollama_runner'
+require_relative 'runner'
 
 module CloudKnowledgeDb
   class DailySummarizer
@@ -14,8 +14,8 @@ module CloudKnowledgeDb
         - 出力は本文Markdownのみ。前置きや結語は不要。
     JA
 
-    def initialize(model: 'gemma4')
-      @runner = OllamaRunner.new(model: model)
+    def initialize(provider: 'local_ollama', model: 'gemma4')
+      @runner = Runner.build(provider: provider, model: model)
     end
 
     # @param provider_short [String] e.g. "aws"

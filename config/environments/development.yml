@@ -10,7 +10,7 @@ esa:
     gitlab_blog: { category: development/cloud-trunk-changes/gitlab }
 
 models:
-  translator:       gemma4
-  classifier:       haiku
-  daily_summarizer: gemma4
-  default:          sonnet
+  translator:       { provider: local_ollama, model: gemma4 }
+  classifier:       { provider: claude,       model: haiku }
+  daily_summarizer: { provider: local_ollama, model: gemma4 }
+  default:          { provider: claude,       model: sonnet }
