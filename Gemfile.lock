@@ -3,7 +3,7 @@ PATH
   specs:
     cloud_blog_collector (0.0.1)
       faraday
-      nokogiri
+      oga
       rss
 
 PATH
@@ -16,6 +16,8 @@ GEM
   specs:
     addressable (2.9.0)
       public_suffix (>= 2.0.2, < 8.0)
+    ansi (1.6.0)
+    ast (2.4.3)
     bigdecimal (4.1.1)
     faraday (2.14.1)
       faraday-net_http (>= 2.0, < 3.5)
@@ -47,6 +49,9 @@ GEM
       racc (~> 1.4)
     nokogiri (1.19.2-x86_64-linux-musl)
       racc (~> 1.4)
+    oga (3.4)
+      ast
+      ruby-ll (~> 2.1)
     onnxruntime (0.11.1-arm64-darwin)
       ffi
     onnxruntime (0.11.1-x86_64-darwin)
@@ -60,6 +65,9 @@ GEM
     rexml (3.4.4)
     rss (0.3.2)
       rexml
+    ruby-ll (2.1.4)
+      ansi
+      ast
     sqlite-vec (0.1.9-arm64-darwin)
     sqlite-vec (0.1.9-x86_64-darwin)
     sqlite-vec (0.1.9-x86_64-linux)
@@ -97,6 +105,8 @@ DEPENDENCIES
 
 CHECKSUMS
   addressable (2.9.0) sha256=7fdf6ac3660f7f4e867a0838be3f6cf722ace541dd97767fa42bc6cfa980c7af
+  ansi (1.6.0) sha256=ac9ea0c0ea8d32fb4e271348e609963ac78882f34b73836c2a02b3622e666658
+  ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
   bigdecimal (4.1.1) sha256=1c09efab961da45203c8316b0cdaec0ff391dfadb952dd459584b63ebf8054ca
   cloud_blog_collector (0.0.1)
   faraday (2.14.1) sha256=a43cceedc1e39d188f4d2cdd360a8aaa6a11da0c407052e426ba8d3fb42ef61c
@@ -115,6 +125,7 @@ CHECKSUMS
   nokogiri (1.19.2-x86_64-darwin) sha256=7d9af11fda72dfaa2961d8c4d5380ca0b51bc389dc5f8d4b859b9644f195e7a4
   nokogiri (1.19.2-x86_64-linux-gnu) sha256=fa8feca882b73e871a9845f3817a72e9734c8e974bdc4fbad6e4bc6e8076b94f
   nokogiri (1.19.2-x86_64-linux-musl) sha256=93128448e61a9383a30baef041bf1f5817e22f297a1d400521e90294445069a8
+  oga (3.4) sha256=953039cd7be8dc50dfdafe052588e369c707ff1a82e06980b90944e1a1061b6d
   onnxruntime (0.11.1-arm64-darwin) sha256=6d205e1adfcb77f0330b46ea9dcd3da9199034408dd5f58d56afca8e70fb686c
   onnxruntime (0.11.1-x86_64-darwin) sha256=acdcbfbc937273fb27fd98587fde18199bb03dcd525f2da5324da42c97631eb9
   onnxruntime (0.11.1-x86_64-linux) sha256=90a47c9ab70103cdd4dd2b99b5179dfed909b44ceb77a1cf076e9dcff925079c
@@ -124,6 +135,7 @@ CHECKSUMS
   rake (13.4.2) sha256=cb825b2bd5f1f8e91ca37bddb4b9aaf345551b4731da62949be002fa89283701
   rexml (3.4.4) sha256=19e0a2c3425dfbf2d4fc1189747bdb2f849b6c5e74180401b15734bc97b5d142
   rss (0.3.2) sha256=3bd0446d32d832cda00ba07f4b179401f903b52ea1fdaac0f1f08de61a501efa
+  ruby-ll (2.1.4) sha256=bec3a40078e4b8578b20751f0b2e3dc3fcaa773e34fae3d9725b724032e47e0c
   ruby_knowledge_store (0.1.0)
   sqlite-vec (0.1.9-arm64-darwin) sha256=f319ab08757741811c6f2f7d2b58c1b9009460e899e1b69d99fdab288286d9bf
   sqlite-vec (0.1.9-x86_64-darwin) sha256=8a8d16c86c8d011359b0ab6f933dc9859f1cc265be6a8a9ac20ecd06cb3b8d32
