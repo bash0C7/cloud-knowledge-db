@@ -406,6 +406,16 @@ task :daily do
   require 'bundler/setup'
   require 'date'
   require 'time'
+  # Hoist per-phase requires out of the source threads so concurrent first-require
+  # races (autoload / constant resolution) cannot happen.
+  require 'cloud_blog_collector'
+  require 'tmpdir'
+  require_relative 'lib/cloud_knowledge_db/translator'
+  require_relative 'lib/cloud_knowledge_db/translation_cache'
+  require 'ruby_knowledge_store'
+  require_relative 'lib/cloud_knowledge_db/esa_writer'
+  require_relative 'lib/cloud_knowledge_db/esa_naming'
+  require_relative 'lib/cloud_knowledge_db/daily_summarizer'
 
   CloudKnowledgeDb::Config.ensure_write_host!
   CloudKnowledgeDb::OllamaRunner.ensure_available!
@@ -421,24 +431,53 @@ task :daily do
             floor ? Date.parse(floor) : (before - 1)
           end
 
-  cfg['sources'].keys.each do |key|
-    puts "==== #{key} (#{since}..#{before}) ===="
-    data = TB.mark_started(data, key, before: before, at: Time.now)
-    TB.save(LAST_RUN_PATH, data)
+  bookmark_mutex = Mutex.new
+  t_total = Time.now
 
-    begin
-      dir = do_fetch(key, since: since.to_time, before: before.to_time)
+  threads = cfg['sources'].keys.map do |key|
+    Thread.new do
+      Thread.current.report_on_exception = true
+      t_src_start = Time.now
+      puts "==== #{key} (#{since}..#{before}) ===="
 
-      do_translate(key, dir: dir)
-      do_import(key, dir: dir)
-      do_esa(key, dir: dir)
+      bookmark_mutex.synchronize do
+        d = TB.load(LAST_RUN_PATH)
+        d = TB.mark_started(d, key, before: before, at: Time.now)
+        TB.save(LAST_RUN_PATH, d)
+      end
 
-      data = TB.mark_completed(data, key, before: before, at: Time.now,
-        models_used: { 'translator' => cfg['models']['translator'], 'daily_summarizer' => cfg['models']['daily_summarizer'] })
-      TB.save(LAST_RUN_PATH, data)
-    rescue => e
-      warn "SKIP #{key}: #{e.class}: #{e.message}"
-      warn e.backtrace.first(5).join("\n") if ENV['DEBUG']
+      begin
+        t0 = Time.now
+        dir = do_fetch(key, since: since.to_time, before: before.to_time)
+        puts "[timing] #{key} fetch    #{(Time.now - t0).round(2)}s"
+
+        t0 = Time.now
+        do_translate(key, dir: dir)
+        puts "[timing] #{key} translate #{(Time.now - t0).round(2)}s"
+
+        t0 = Time.now
+        do_import(key, dir: dir)
+        puts "[timing] #{key} import   #{(Time.now - t0).round(2)}s"
+
+        t0 = Time.now
+        do_esa(key, dir: dir)
+        puts "[timing] #{key} esa      #{(Time.now - t0).round(2)}s"
+
+        puts "[timing] #{key} TOTAL    #{(Time.now - t_src_start).round(2)}s"
+
+        bookmark_mutex.synchronize do
+          d = TB.load(LAST_RUN_PATH)
+          d = TB.mark_completed(d, key, before: before, at: Time.now,
+            models_used: { 'translator' => cfg['models']['translator'], 'daily_summarizer' => cfg['models']['daily_summarizer'] })
+          TB.save(LAST_RUN_PATH, d)
+        end
+      rescue => e
+        warn "SKIP #{key}: #{e.class}: #{e.message}"
+        warn e.backtrace.first(5).join("\n") if ENV['DEBUG']
+      end
     end
   end
+
+  threads.each(&:join)
+  puts "[timing] daily WALLCLOCK #{(Time.now - t_total).round(2)}s"
 end
