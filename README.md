@@ -32,12 +32,7 @@ bundle install
 security add-generic-password -a "$USER" -s esa-mcp-token -w '<TOKEN>'
 ```
 
-**Anthropic API key**:
-```bash
-export ANTHROPIC_API_KEY=<key>
-# or via Keychain:
-security add-generic-password -a "$USER" -s anthropic-api-key -w '<KEY>'
-```
+LLM calls (Translator / DailySummarizer / ContentClassifier) go through the `claude` CLI in a `/tmp` cwd, so no `ANTHROPIC_API_KEY` is needed — the CLI handles auth. Install `claude` and sign in before running the pipeline.
 
 ---
 
@@ -87,10 +82,12 @@ APP_ENV=test DIR=$DIR bundle exec rake esa:aws   # skipped for classmethod
 
 | Task | Purpose |
 |---|---|
+| `rake db:stats` | Show row counts per source and vector total |
 | `rake db:scan_pollution` | Detect empty-meta markers, near-duplicate candidates |
 | `rake db:scan_contamination` | Detect CLAUDE.md persona leakage in stored content |
 | `rake db:delete_polluted IDS=...` | Hard-delete by explicit ID list (host guard active) |
 | `rake esa:find_duplicates [DATE=...]` | Find same-name/same-category duplicate esa posts |
+| `rake esa:delete IDS=...` | Hard-delete esa posts by ID list (host guard active) |
 | `rake smoke:rss_endpoints` | HEAD check all RSS/ATOM feed URLs (excluded from CI) |
 
 ---
@@ -116,8 +113,8 @@ classmethod articles skip Phase 2b (DB-only, not posted to esa).
 | Source | feed_url | adapter | source values |
 |---|---|---|---|
 | AWS News | `aws.amazon.com/blogs/aws/feed/` | rss | `aws/blogs/news`, `aws/blogs/news/original` |
-| Google Cloud | `cloud.google.com/blog/products/gcp/rss` | rss | `gcp/blogs/products`, `gcp/blogs/products/original` |
-| Google Workspace | `workspace.google.com/blog/rss` | rss | `gws/blogs/all`, `gws/blogs/all/original` |
+| Google Cloud | `cloudblog.withgoogle.com/products/gcp/rss/` | rss | `gcp/blogs/products`, `gcp/blogs/products/original` |
+| Google Workspace | `feeds.feedburner.com/GoogleAppsUpdates` | rss | `gws/blogs/all`, `gws/blogs/all/original` |
 | GitLab | `about.gitlab.com/atom.xml` | rss | `gitlab/blogs/all`, `gitlab/blogs/all/original` |
 | classmethod.jp | `dev.classmethod.jp/feed/` | classmethod | `{aws,gcp,gws,gitlab}/classmethod` |
 
