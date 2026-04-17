@@ -55,58 +55,14 @@ def do_fetch(key, since:, before:)
   records.each do |r|
     date  = r[:published_at].to_date.to_s
     slug  = slug_for(r[:url])
-    fname = "#{date}-#{src_cfg['short_name']}-original-#{slug}.md"
+    fname = "#{date}-#{src_cfg['short_name']}-#{slug}.md"
     write_md(dir, fname, {
       source: r[:source], url: r[:url], title: r[:title],
-      published_at: r[:published_at].iso8601, date: date, type: 'original'
+      published_at: r[:published_at].iso8601, date: date, type: 'article'
     }, r[:content_original].to_s)
   end
   puts "fetch #{key}: #{records.length} records -> #{dir}"
   dir
-end
-
-TRANSLATION_CACHE_DIR = File.expand_path('db/cache/translated', __dir__)
-
-def do_translate(key, dir:)
-  CloudKnowledgeDb::OllamaRunner.ensure_available!
-  require 'bundler/setup'
-  require_relative 'lib/cloud_knowledge_db/translator'
-  require_relative 'lib/cloud_knowledge_db/translation_cache'
-
-  src_cfg = cfg['sources'][key] or abort "unknown source: #{key}"
-  return if src_cfg['adapter'] == 'classmethod'
-
-  m          = cfg['models']['translator']
-  translator = CloudKnowledgeDb::Translator.new(provider: m['provider'], model: m['model'])
-  cache      = CloudKnowledgeDb::TranslationCache.new(TRANSLATION_CACHE_DIR)
-
-  Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-original-*.md")).each do |orig_path|
-    ja_path     = orig_path.sub('-original-', '-')
-    ja_basename = File.basename(ja_path)
-    next if File.exist?(ja_path)
-
-    cached = cache.fetch(ja_basename)
-    if cached
-      File.write(ja_path, cached)
-      puts "translate: skip (cached) #{File.basename(orig_path)}"
-      next
-    end
-
-    fm, body = parse_md(orig_path)
-    next if fm.nil? || body.nil?
-
-    puts "translate: #{File.basename(orig_path)}"
-    ja_body = translator.translate(body)
-
-    ja_fm = fm.merge(
-      'source'        => src_cfg['source_article'],
-      'type'          => 'article',
-      'translated_at' => Time.now.iso8601,
-      'origin_url'    => fm['url']
-    )
-    write_md(dir, ja_basename, ja_fm, ja_body)
-    cache.store(ja_basename, File.read(ja_path))
-  end
 end
 
 def do_import(key, dir:)
@@ -150,21 +106,20 @@ def do_esa(key, dir:)
   m          = cfg['models']['daily_summarizer']
   summarizer = CloudKnowledgeDb::DailySummarizer.new(provider: m['provider'], model: m['model'])
 
-  ja_paths = Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-*.md"))
-                .reject { |p| File.basename(p).include?('-original-') }
-  grouped  = ja_paths.group_by { |p| File.basename(p)[/^\d{4}-\d{2}-\d{2}/] }
+  paths    = Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-*.md"))
+  grouped  = paths.group_by { |p| File.basename(p)[/^\d{4}-\d{2}-\d{2}/] }
 
-  grouped.each do |date, paths|
+  grouped.each do |date, group|
     next if date.nil?
-    articles = paths.filter_map do |p|
+    articles = group.filter_map do |p|
       fm, body = parse_md(p)
       next if fm.nil? || body.nil?
-      { title: fm['title'], url: fm['origin_url'] || fm['url'], body_ja: body }
+      { title: fm['title'], url: fm['url'], body: body }
     end
     next if articles.empty?
 
     begin
-      body_md = summarizer.summarize(provider_short: src_cfg['short_name'], date: date, translated_articles: articles)
+      body_md = summarizer.summarize(provider_short: src_cfg['short_name'], date: date, articles: articles)
       writer  = CloudKnowledgeDb::EsaWriter.new(
         team:     cfg['esa']['team'],
         category: CloudKnowledgeDb::EsaNaming.build_category(prefix: esa_cfg['category'], date: date),
@@ -202,17 +157,6 @@ namespace :fetch do
       before = ENV['BEFORE'] ? Time.parse(ENV['BEFORE']) : Time.now
       dir = do_fetch(key, since: since, before: before)
       puts "DIR=#{dir}"
-    end
-  end
-end
-
-namespace :translate do
-  source_keys.each do |key|
-    desc "translate fetched MDs in DIR for source=#{key}"
-    task key.to_sym do
-      CloudKnowledgeDb::Config.ensure_write_host!
-      dir = ENV['DIR'] or abort 'DIR is required'
-      do_translate(key, dir: dir)
     end
   end
 end
@@ -411,8 +355,6 @@ task :daily do
   # races (autoload / constant resolution) cannot happen.
   require 'cloud_blog_collector'
   require 'tmpdir'
-  require_relative 'lib/cloud_knowledge_db/translator'
-  require_relative 'lib/cloud_knowledge_db/translation_cache'
   require 'ruby_knowledge_store'
   require_relative 'lib/cloud_knowledge_db/esa_writer'
   require_relative 'lib/cloud_knowledge_db/esa_naming'
@@ -450,26 +392,22 @@ task :daily do
       begin
         t0 = Time.now
         dir = do_fetch(key, since: since.to_time, before: before.to_time)
-        puts "[timing] #{key} fetch    #{(Time.now - t0).round(2)}s"
-
-        t0 = Time.now
-        do_translate(key, dir: dir)
-        puts "[timing] #{key} translate #{(Time.now - t0).round(2)}s"
+        puts "[timing] #{key} fetch   #{(Time.now - t0).round(2)}s"
 
         t0 = Time.now
         do_import(key, dir: dir)
-        puts "[timing] #{key} import   #{(Time.now - t0).round(2)}s"
+        puts "[timing] #{key} import  #{(Time.now - t0).round(2)}s"
 
         t0 = Time.now
         do_esa(key, dir: dir)
-        puts "[timing] #{key} esa      #{(Time.now - t0).round(2)}s"
+        puts "[timing] #{key} esa     #{(Time.now - t0).round(2)}s"
 
-        puts "[timing] #{key} TOTAL    #{(Time.now - t_src_start).round(2)}s"
+        puts "[timing] #{key} TOTAL   #{(Time.now - t_src_start).round(2)}s"
 
         bookmark_mutex.synchronize do
           d = TB.load(LAST_RUN_PATH)
           d = TB.mark_completed(d, key, before: before, at: Time.now,
-            models_used: { 'translator' => cfg['models']['translator'], 'daily_summarizer' => cfg['models']['daily_summarizer'] })
+            models_used: { 'daily_summarizer' => cfg['models']['daily_summarizer'] })
           TB.save(LAST_RUN_PATH, d)
         end
       rescue => e

@@ -3,29 +3,25 @@ sources:
     short_name: aws
     feed_url: https://aws.amazon.com/blogs/aws/feed/
     adapter: rss
-    source_article: aws/blogs/news
-    source_original: aws/blogs/news/original
+    source: aws/blogs/news
 
   gcp_blog:
     short_name: gcp
     feed_url: https://cloudblog.withgoogle.com/products/gcp/rss/
     adapter: rss
-    source_article: gcp/blogs/products
-    source_original: gcp/blogs/products/original
+    source: gcp/blogs/products
 
   gws_blog:
     short_name: gws
     feed_url: https://feeds.feedburner.com/GoogleAppsUpdates
     adapter: rss
-    source_article: gws/blogs/all
-    source_original: gws/blogs/all/original
+    source: gws/blogs/all
 
   gitlab_blog:
     short_name: gitlab
     feed_url: https://about.gitlab.com/atom.xml
     adapter: rss
-    source_article: gitlab/blogs/all
-    source_original: gitlab/blogs/all/original
+    source: gitlab/blogs/all
 
   classmethod_blog:
     short_name: classmethod

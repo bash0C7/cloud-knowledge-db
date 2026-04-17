@@ -6,7 +6,7 @@ Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace / GitL
 
 - **Language:** Ruby 4.0 (CRuby — Python absolutely prohibited)
 - **DB:** SQLite3 + sqlite-vec (FTS5 trigram + vec0 768-dim) — reuses `ruby-knowledge-store`
-- **Translation:** Anthropic SDK direct call (not Claude CLI) — Haiku for translation/classification, Opus for summarization
+- **LLM:** Local ollama gemma4 via HTTP `/api/generate` for the daily esa summary. Per-article translation is NOT performed at ingest time — English blog articles are stored as-is and the host MCP agent translates on-demand at query time (same pattern as `ruby-rdoc-collector`).
 - **Test:** test-unit xUnit style (t-wada TDD)
 
 ---
@@ -24,15 +24,14 @@ Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace / GitL
 
 | File | Responsibility |
 |---|---|
-| `lib/cloud_knowledge_db/orchestrator.rb` | Full-source fetch→translate→import→esa orchestration |
-| `lib/cloud_knowledge_db/translator.rb` | Anthropic SDK Haiku translation. English system prompt, CLAUDE.md NOT inherited |
-| `lib/cloud_knowledge_db/daily_summarizer.rb` | esa post body generation via Anthropic SDK (Opus) |
-| `lib/cloud_knowledge_db/content_classifier.rb` | Classmethod article tag classification (Haiku) |
+| `lib/cloud_knowledge_db/runner.rb` | Factory `Runner.build(provider:, model:)` returning `ClaudeRunner` or `OllamaRunner` |
+| `lib/cloud_knowledge_db/claude_runner.rb` | `claude -p` CLI wrapper (chdir /tmp to block CLAUDE.md contamination) |
+| `lib/cloud_knowledge_db/ollama_runner.rb` | Local ollama HTTP client (`/api/generate`, `stream=false`, `think=false`) + `ensure_available!` |
+| `lib/cloud_knowledge_db/daily_summarizer.rb` | esa post body generation (takes English articles, emits Japanese summary) |
+| `lib/cloud_knowledge_db/content_classifier.rb` | classmethod article tag classification (Claude haiku) |
 | `lib/cloud_knowledge_db/esa_writer.rb` | esa API posting |
 | `lib/cloud_knowledge_db/trunk_bookmark.rb` | Two-stage bookmark management (load/save/mark_started/mark_completed/status/recommended_since_floor) |
-| `lib/cloud_knowledge_db/config.rb` (`Config.ensure_write_host!`) | LocalHostName check — blocks writes on unauthorized hosts (no separate host_guard.rb file) |
-| `lib/cloud_knowledge_db/model_resolver.rb` | Runtime model resolution via GET /v1/models |
-| `lib/cloud_knowledge_db/config.rb` | APP_ENV config load |
+| `lib/cloud_knowledge_db/config.rb` | APP_ENV config load; `Config.ensure_write_host!` gates writes by LocalHostName |
 
 ---
 
@@ -58,25 +57,22 @@ CREATE VIRTUAL TABLE memories_vec USING vec0(memory_id INTEGER PRIMARY KEY, embe
 
 ---
 
-## Source Values (all 12)
+## Source Values (all 8)
 
 | source value | content | language |
 |---|---|---|
-| `aws/blogs/news` | AWS News blog (translated) | ja |
-| `aws/blogs/news/original` | AWS News blog (original) | en |
+| `aws/blogs/news` | AWS News blog | en |
 | `aws/classmethod` | classmethod AWS articles | ja |
-| `gcp/blogs/products` | Google Cloud blog (translated) | ja |
-| `gcp/blogs/products/original` | Google Cloud blog (original) | en |
+| `gcp/blogs/products` | Google Cloud blog | en |
 | `gcp/classmethod` | classmethod GCP articles | ja |
-| `gws/blogs/all` | Google Workspace blog (translated) | ja |
-| `gws/blogs/all/original` | Google Workspace blog (original) | en |
+| `gws/blogs/all` | Google Workspace blog | en |
 | `gws/classmethod` | classmethod Workspace articles | ja |
-| `gitlab/blogs/all` | GitLab blog (translated) | ja |
-| `gitlab/blogs/all/original` | GitLab blog (original) | en |
+| `gitlab/blogs/all` | GitLab blog | en |
 | `gitlab/classmethod` | classmethod GitLab articles | ja |
 
 **Naming convention:** provider is always the top-level prefix (aws/gcp/gws/gitlab).
-`WHERE source LIKE 'aws/%'` covers all AWS records (official + classmethod + originals).
+`WHERE source LIKE 'aws/%'` covers all AWS records (official + classmethod).
+Official blog rows are English; classmethod rows are Japanese original. Japanese queries against English rows should either be FTS-searched after a local translation step on the agent side, or funnelled through semantic search.
 
 ---
 
@@ -104,29 +100,28 @@ CREATE VIRTUAL TABLE memories_vec USING vec0(memory_id INTEGER PRIMARY KEY, embe
 
 ---
 
-## 4-Phase Pipeline
+## 3-Phase Pipeline
 
 ```
-Phase 1a (fetch)      RSS/ATOM → English MD → tmpdir
-         ↓
-Phase 1b (translate)  English MD → Haiku → Japanese MD → tmpdir
-         ↓
-Phase 2a (import)     All MD → SQLite (content_hash idempotent)
-         ↓
-Phase 2b (esa)        Japanese MD only → esa API (official 4 sources; classmethod skipped)
+Phase 1 (fetch)   RSS/ATOM → English MD (or classmethod Japanese MD) → tmpdir
+        ↓
+Phase 2 (import)  MD → SQLite (content_hash idempotent)
+        ↓
+Phase 3 (esa)    English MDs → gemma4 summary → Japanese esa post
+                 (official 4 sources; classmethod skipped)
 ```
+
+Source threads run in parallel inside `rake daily` with per-phase timing logs. See Rakefile for the `Mutex`-guarded bookmark read-modify-write.
 
 ### tmpdir file naming
 ```
-{tmpdir}/2026-04-15-aws-original-{slug}.md   # English original
-{tmpdir}/2026-04-15-aws-{slug}.md            # Japanese translation
+{tmpdir}/2026-04-15-aws-{slug}.md   # single English article per record
 ```
 
 ### Idempotency per phase
 | Phase | Strategy |
 |---|---|
 | fetch | Deterministic by since/before interval + published_at filter |
-| translate | Skip if translated MD already exists (timestamp check) |
 | import | `content_hash` UNIQUE INDEX — duplicates auto-skipped |
 | esa | Deterministic full path — same name triggers `(1)` duplicate detection |
 
@@ -140,7 +135,6 @@ APP_ENV=production bundle exec rake daily
 
 # Phase-by-phase per source
 APP_ENV=test SINCE=2026-04-15 BEFORE=2026-04-16 bundle exec rake fetch:aws
-APP_ENV=test DIR=$DIR bundle exec rake translate:aws
 APP_ENV=test DIR=$DIR bundle exec rake import:aws
 APP_ENV=test DIR=$DIR bundle exec rake esa:aws        # skipped for classmethod
 
@@ -174,56 +168,36 @@ bundle exec rake smoke:rss_endpoints
 
 ## CLAUDE.md Contamination Guard
 
-`Translator` and `DailySummarizer` call the Anthropic SDK **directly** (not Claude CLI) so `~/CLAUDE.md` persona instructions are never inherited.
-
-```ruby
-class Translator
-  SYSTEM_PROMPT = <<~EN
-    You are a precise English-to-Japanese translator for cloud platform technical blog articles.
-    Translate the provided article to natural Japanese suitable for engineers.
-    Rules:
-      - Preserve all code blocks, URLs, product names, and technical terms verbatim.
-      - Use formal-but-casual technical style (です/ます). Do NOT use slang or dialects.
-      - Output ONLY the translation. Do not add explanations or meta commentary.
-  EN
-end
-```
-
-Key points:
-- `system` is English-only (no persona leakage from `~/CLAUDE.md`)
-- `cache_control: { type: "ephemeral" }` on system prompt — enables prompt cache for batch translation
-- "Do NOT use slang or dialects" explicitly blocks gyaru/dialect output
+`DailySummarizer` runs on `OllamaRunner` (local HTTP), which is not affected by `~/CLAUDE.md` at all. `ContentClassifier` still uses `ClaudeRunner`, which runs `claude -p` with `chdir: "/tmp"` so the project-level `CLAUDE.md` is out of scope. Every consumer's `SYSTEM_PROMPT` also explicitly forbids slang/dialects/persona output.
 
 ### Contamination test markers
 ```ruby
 CONTAMINATION_MARKERS = %w[ピョン チェケラッチョ じゃりんこ ウチ あんさん 質問？ 確認？ 了解。].freeze
 ```
-`test/test_contamination.rb` verifies every system prompt is clean on every run.
+`test/test_contamination.rb` verifies every consumer's `SYSTEM_PROMPT` is clean on every run.
 
 ---
 
-## Runtime Model Resolution
+## LLM Provider Matrix
 
-Short names only in config — actual model IDs resolved at runtime via `GET /v1/models`.
+Each consumer resolves to a `(provider, model)` pair at construction via `Runner.build`.
 
-```ruby
-# lib/cloud_knowledge_db/model_resolver.rb
-FAMILIES = %w[haiku sonnet opus].freeze
+| Role | Class | Provider | Model |
+|---|---|---|---|
+| classmethod tag classification | `ContentClassifier` | claude | haiku |
+| Daily esa summary | `DailySummarizer` | local_ollama | gemma4 |
+| Default | — | claude | sonnet |
 
-def resolve(family)
-  return ENV["CLOUD_KB_PIN_#{family.upcase}"] if ENV["CLOUD_KB_PIN_#{family.upcase}"]
-  @cache[family] ||= fetch_latest(family)   # selects max version_tuple from /v1/models
-end
+Config shape per-environment (`config/environments/<env>.yml`):
+
+```yaml
+models:
+  classifier:       { provider: claude,       model: haiku }
+  daily_summarizer: { provider: local_ollama, model: gemma4 }
+  default:          { provider: claude,       model: sonnet }
 ```
 
-| Role | Class | Short name |
-|---|---|---|
-| EN→JA translation | `Translator` | haiku |
-| Article tag classification | `ContentClassifier` | haiku |
-| Daily esa summary | `DailySummarizer` | opus |
-| Default | — | sonnet |
-
-**Escape hatch:** `CLOUD_KB_PIN_HAIKU=claude-haiku-4-5-20251001` pins a specific model ID.
+To run the summary on a different ollama model, only this file changes; no code edit is needed.
 
 ---
 
@@ -238,8 +212,7 @@ aws_blog:
   last_completed_at:     2026-04-16T09:08:00+09:00
   last_completed_before: 2026-04-16
   models_used:
-    translator:       claude-haiku-4-5-20251001
-    daily_summarizer: claude-opus-4-6
+    daily_summarizer: { provider: local_ollama, model: gemma4 }
 ```
 
 - `last_started_before > last_completed_before` → WIP (previous run did not complete)
@@ -250,7 +223,7 @@ aws_blog:
 
 ## Host Guard
 
-Write tasks (`rake daily`, `fetch:*`, `translate:*`, `import:*`, `esa:*`) check `scutil --get LocalHostName` against `config/environments/production.yml`:
+Write tasks (`rake daily`, `fetch:*`, `import:*`, `esa:*`) check `scutil --get LocalHostName` against `config/environments/production.yml`:
 
 ```yaml
 allowed_write_host: MacBook-Air-M3
@@ -260,19 +233,18 @@ Override with `ALLOW_WRITE=1` (escape hatch for exceptional cases).
 
 ---
 
-## 1-Article-2-Records Design
+## 1-Article-1-Record Design
 
-Each article produces exactly 2 DB records:
+Each article produces exactly one DB record holding the raw source-language content:
 
 | Record | source example | content |
 |---|---|---|
-| Translated | `aws/blogs/news` | Japanese translation (Haiku) |
-| Original | `aws/blogs/news/original` | English original |
+| English official | `aws/blogs/news` | English original |
+| Japanese classmethod | `aws/classmethod` | Japanese original |
 
-Both records receive embeddings (supports both Japanese and English queries).
-Records linked by `url` field in YAML frontmatter.
+The record receives an embedding on ingest (supports both Japanese and English semantic queries via ruri multilingual embedder). On-demand Japanese translation of official blog content is handled downstream by the MCP host agent at query time — the pipeline never writes translated copies to the DB.
 
-**classmethod articles:** Japanese original only — no `/original` suffix, no translation, no esa post.
+**classmethod articles:** already Japanese, no esa post (DB-only).
 
 ---
 
@@ -283,7 +255,7 @@ Entry in `~/chiebukuro-mcp/chiebukuro.json`:
 ```json
 "cloud_knowledge": {
   "path": "/Users/bash/Library/Mobile Documents/com~apple~CloudDocs/chiebukuro-mcp/db/cloud_knowledge.db",
-  "description": "AWS/Google Cloud/Google Workspace/GitLab 公式blog 日次収集 DB。英語原文（source=*/original）と日本語訳（Haiku）を両方格納。",
+  "description": "AWS/Google Cloud/Google Workspace/GitLab 公式blog 日次収集 DB。英語原文のみ格納（日本語訳はMCPホスト側でクエリ時オンデマンド）。classmethod 解説記事は日本語原文で併録。",
   "semantic_search": {
     "vec_table": "memories_vec",
     "content_table": "memories",

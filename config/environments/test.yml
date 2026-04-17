@@ -10,7 +10,6 @@ esa:
     gitlab_blog: { category: test/cloud-trunk-changes/gitlab }
 
 models:
-  translator:       { provider: local_ollama, model: gemma4 }
   classifier:       { provider: claude,       model: haiku }
   daily_summarizer: { provider: local_ollama, model: gemma4 }
   default:          { provider: claude,       model: haiku }

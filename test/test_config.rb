@@ -10,8 +10,8 @@ class ConfigTest < Test::Unit::TestCase
     assert(cfg.key?('models'),  "config should have 'models' key from environments/test.yml")
   end
 
-  def test_resolve_model_returns_short_name
+  def test_daily_summarizer_resolves_to_local_ollama_gemma4
     cfg = CloudKnowledgeDb::Config.load
-    assert_equal({ 'provider' => 'local_ollama', 'model' => 'gemma4' }, cfg['models']['translator'])
+    assert_equal({ 'provider' => 'local_ollama', 'model' => 'gemma4' }, cfg['models']['daily_summarizer'])
   end
 end

@@ -20,15 +20,15 @@ class DailySummarizerTest < Test::Unit::TestCase
   end
 
   def test_summarize_returns_markdown
-    md = @summarizer.summarize(provider_short: 'aws', date: '2026-04-15', translated_articles: [
-      { title: 'Art1', url: 'https://x', body_ja: '本文1' }
+    md = @summarizer.summarize(provider_short: 'aws', date: '2026-04-15', articles: [
+      { title: 'Art1', url: 'https://x', body: 'English body 1' }
     ])
     assert_match(/# 2026-04-15 AWS まとめ/, md)
   end
 
   def test_prompt_includes_articles
     @summarizer.summarize(provider_short: 'aws', date: '2026-04-15',
-                          translated_articles: [{ title: 'T1', url: 'U1', body_ja: 'B1' }])
+                          articles: [{ title: 'T1', url: 'U1', body: 'B1' }])
     assert_match(/T1/, @fake.last_prompt)
     assert_match(/U1/, @fake.last_prompt)
     assert_match(/B1/, @fake.last_prompt)
@@ -36,7 +36,7 @@ class DailySummarizerTest < Test::Unit::TestCase
 
   def test_prompt_instructs_heading_link_format
     @summarizer.summarize(provider_short: 'aws', date: '2026-04-15',
-                          translated_articles: [{ title: 'T1', url: 'U1', body_ja: 'B1' }])
+                          articles: [{ title: 'T1', url: 'U1', body: 'B1' }])
     assert_match(/## \[<タイトル>\]\(<URL>\)/, @fake.last_prompt,
                  'system prompt must tell the model to emit heading-as-link format')
     assert_match(/末尾に単独のリンク行/, @fake.last_prompt,
