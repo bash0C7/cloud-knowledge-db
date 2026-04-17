@@ -15,7 +15,7 @@ class DailySummarizerTest < Test::Unit::TestCase
 
   def setup
     @fake = FakeRunner.new(SAMPLE_MARKDOWN)
-    @summarizer = CloudKnowledgeDb::DailySummarizer.new(model: 'opus')
+    @summarizer = CloudKnowledgeDb::DailySummarizer.new(model: 'gemma4')
     @summarizer.instance_variable_set(:@runner, @fake)
   end
 

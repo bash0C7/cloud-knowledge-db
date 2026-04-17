@@ -12,5 +12,5 @@ esa:
 models:
   translator:       gemma4
   classifier:       haiku
-  daily_summarizer: haiku
+  daily_summarizer: gemma4
   default:          haiku

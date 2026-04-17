@@ -15,5 +15,5 @@ esa:
 models:
   translator:       gemma4
   classifier:       haiku
-  daily_summarizer: opus
+  daily_summarizer: gemma4
   default:          sonnet
