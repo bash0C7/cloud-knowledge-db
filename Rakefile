@@ -64,29 +64,34 @@ def do_fetch(key, since:, before:)
   dir
 end
 
+TRANSLATION_CACHE_DIR = File.expand_path('db/cache/translated', __dir__)
+
 def do_translate(key, dir:)
   require 'bundler/setup'
   require_relative 'lib/cloud_knowledge_db/translator'
-  require_relative 'lib/cloud_knowledge_db/translation_registry'
+  require_relative 'lib/cloud_knowledge_db/translation_cache'
 
   src_cfg = cfg['sources'][key] or abort "unknown source: #{key}"
   return if src_cfg['adapter'] == 'classmethod'
 
   model      = cfg['models']['translator'] || 'haiku'
   translator = CloudKnowledgeDb::Translator.new(model: model)
-  registry   = build_translation_registry
+  cache      = CloudKnowledgeDb::TranslationCache.new(TRANSLATION_CACHE_DIR)
 
   Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-original-*.md")).each do |orig_path|
-    ja_path = orig_path.sub('-original-', '-')
+    ja_path     = orig_path.sub('-original-', '-')
+    ja_basename = File.basename(ja_path)
     next if File.exist?(ja_path)
+
+    cached = cache.fetch(ja_basename)
+    if cached
+      File.write(ja_path, cached)
+      puts "translate: skip (cached) #{File.basename(orig_path)}"
+      next
+    end
 
     fm, body = parse_md(orig_path)
     next if fm.nil? || body.nil?
-
-    if registry.has_translation?(source: src_cfg['source_article'], url: fm['url'])
-      puts "translate: skip (already in DB) #{File.basename(orig_path)}"
-      next
-    end
 
     puts "translate: #{File.basename(orig_path)}"
     ja_body = translator.translate(body)
@@ -97,22 +102,9 @@ def do_translate(key, dir:)
       'translated_at' => Time.now.iso8601,
       'origin_url'    => fm['url']
     )
-    write_md(dir, File.basename(ja_path), ja_fm, ja_body)
+    write_md(dir, ja_basename, ja_fm, ja_body)
+    cache.store(ja_basename, File.read(ja_path))
   end
-end
-
-def build_translation_registry
-  require_relative 'lib/cloud_knowledge_db/translation_registry'
-  db_path = File.expand_path(cfg['db_path'], __dir__)
-  db = nil
-  if File.exist?(db_path)
-    require 'sqlite3'
-    require 'sqlite_vec'
-    db = SQLite3::Database.new(db_path)
-    db.enable_load_extension(true)
-    SqliteVec.load(db)
-  end
-  CloudKnowledgeDb::TranslationRegistry.new(db)
 end
 
 def do_import(key, dir:)

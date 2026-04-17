@@ -4,4 +4,5 @@
 *.db-shm
 *.db-wal
 db/last_run.yml
+db/cache/
 .DS_Store
