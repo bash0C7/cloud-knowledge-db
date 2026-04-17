@@ -13,7 +13,7 @@ esa:
     gitlab_blog: { category: production/cloud-trunk-changes/gitlab }
 
 models:
-  translator:       haiku
+  translator:       gemma4
   classifier:       haiku
   daily_summarizer: opus
   default:          sonnet
