@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-require_relative 'claude_runner'
+require_relative 'ollama_runner'
 
 module CloudKnowledgeDb
   class Translator
@@ -12,8 +12,8 @@ module CloudKnowledgeDb
         - Output ONLY the translation. Do not add explanations or meta commentary.
     EN
 
-    def initialize(model: 'haiku')
-      @runner = ClaudeRunner.new(model: model)
+    def initialize(model: 'gemma4')
+      @runner = OllamaRunner.new(model: model)
     end
 
     # @param article_md [String] English article

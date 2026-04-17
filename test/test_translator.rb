@@ -6,7 +6,7 @@ require 'cloud_knowledge_db/translator'
 class TranslatorTest < Test::Unit::TestCase
   def setup
     @fake = FakeRunner.new('翻訳された日本語テキスト')
-    @translator = CloudKnowledgeDb::Translator.new(model: 'haiku')
+    @translator = CloudKnowledgeDb::Translator.new(model: 'gemma4')
     @translator.instance_variable_set(:@runner, @fake)
   end
 
@@ -19,5 +19,10 @@ class TranslatorTest < Test::Unit::TestCase
     @translator.translate('article body')
     assert_match(/English-to-Japanese translator/, @fake.last_prompt)
     assert_match(/article body/, @fake.last_prompt)
+  end
+
+  def test_default_model_is_gemma4
+    t = CloudKnowledgeDb::Translator.new
+    assert_equal 'gemma4', t.instance_variable_get(:@runner).instance_variable_get(:@model)
   end
 end
