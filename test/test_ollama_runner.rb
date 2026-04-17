@@ -8,22 +8,30 @@ class OllamaRunnerTest < Test::Unit::TestCase
     assert_equal 'gemma4', runner.instance_variable_get(:@model)
   end
 
-  def test_ensure_available_raises_when_ollama_missing
-    original_path = ENV['PATH']
-    ENV['PATH'] = '/nonexistent-bin-path'
+  def test_ensure_available_raises_when_daemon_unreachable
+    original = ENV['OLLAMA_HOST']
+    ENV['OLLAMA_HOST'] = 'http://127.0.0.1:1'
     assert_raise(RuntimeError) do
       CloudKnowledgeDb::OllamaRunner.ensure_available!
     end
   ensure
-    ENV['PATH'] = original_path
+    ENV['OLLAMA_HOST'] = original
   end
 
-  def test_ensure_available_passes_when_ollama_present
-    # This test only runs when ollama is actually installed locally.
-    # If `which ollama` finds nothing, skip instead of failing.
-    skip 'ollama not installed on this host' unless system('which ollama > /dev/null 2>&1')
+  def test_ensure_available_passes_when_daemon_reachable
+    skip 'ollama daemon not reachable' unless ollama_reachable?
     assert_nothing_raised do
       CloudKnowledgeDb::OllamaRunner.ensure_available!
     end
+  end
+
+  private
+
+  def ollama_reachable?
+    require 'net/http'
+    uri = URI.join(CloudKnowledgeDb::OllamaRunner.host, '/api/tags')
+    Net::HTTP.get_response(uri).is_a?(Net::HTTPSuccess)
+  rescue StandardError
+    false
   end
 end
