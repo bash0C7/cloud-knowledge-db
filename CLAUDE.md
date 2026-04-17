@@ -86,7 +86,7 @@ Official blog rows are English; classmethod rows are Japanese original. Japanese
 ### TDD (t-wada style)
 - Red → Green → Refactor in order
 - Never delete test files
-- No real LLM calls in tests — use `FakeAnthropicClient` stub
+- No real LLM calls in tests — inject `test/support/fake_runner.rb`'s `FakeRunner` via `instance_variable_set(:@runner, ...)`
 - Run tests: `bundle exec rake test`
 
 ### git
