@@ -12,6 +12,6 @@ class ConfigTest < Test::Unit::TestCase
 
   def test_daily_summarizer_resolves_to_local_ollama_gemma4
     cfg = CloudKnowledgeDb::Config.load
-    assert_equal({ 'provider' => 'local_ollama', 'model' => 'gemma4' }, cfg['models']['daily_summarizer'])
+    assert_equal({ 'provider' => 'local_ollama', 'model' => 'gemma4:e2b' }, cfg['models']['daily_summarizer'])
   end
 end
