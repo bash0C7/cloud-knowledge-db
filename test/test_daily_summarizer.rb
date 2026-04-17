@@ -4,14 +4,14 @@ require_relative 'support/fake_runner'
 require 'cloud_knowledge_db/daily_summarizer'
 
 class DailySummarizerTest < Test::Unit::TestCase
-  BULLETS_FIXTURE = <<~MD.strip
-    - 新機能Xが本日提供開始されました。
-    - 料金は変更なしで、既存のAPIから利用できます。
-    - リージョンはus-east-1を含む主要4リージョンに対応しています。
+  PROSE_FIXTURE = <<~MD.strip
+    本日、新機能Xが提供開始されました。既存のAPIから追加コストなしで利用できます。
+
+    対応リージョンはus-east-1を含む主要4リージョンで、今後さらに拡大予定です。
   MD
 
   def setup
-    @fake = FakeRunner.new(BULLETS_FIXTURE)
+    @fake = FakeRunner.new(PROSE_FIXTURE)
     @summarizer = CloudKnowledgeDb::DailySummarizer.new(provider: 'local_ollama', model: 'gemma4')
     @summarizer.instance_variable_set(:@runner, @fake)
   end
@@ -39,7 +39,7 @@ class DailySummarizerTest < Test::Unit::TestCase
     prompts = []
     @fake.define_singleton_method(:execute) do |prompt|
       prompts << prompt
-      BULLETS_FIXTURE
+      PROSE_FIXTURE
     end
     @summarizer.summarize(provider_short: 'aws', date: '2026-04-15', articles: [
       { title: 'T1', url: 'U1', body: 'BODY_OF_1' },
@@ -50,11 +50,12 @@ class DailySummarizerTest < Test::Unit::TestCase
     assert_match(/BODY_OF_2/, prompts[1])
   end
 
-  def test_prompt_forbids_english_and_decorations
+  def test_prompt_forbids_english_and_bullets
     @summarizer.summarize(provider_short: 'aws', date: '2026-04-15',
                           articles: [{ title: 'T', url: 'U', body: 'B' }])
     assert_match(/日本語/, @fake.last_prompt)
     assert_match(/英語.*出力してはならない|必ず日本語/, @fake.last_prompt)
-    assert_match(/箇条書きのみ/, @fake.last_prompt)
+    assert_match(/段落形式/, @fake.last_prompt)
+    assert_match(/箇条書き.*使わない|箇条書き.*使えない/, @fake.last_prompt)
   end
 end
