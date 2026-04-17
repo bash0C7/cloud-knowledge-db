@@ -4,7 +4,16 @@
       "Bash(bundle exec rake *)",
       "Bash(bundle exec ruby *)",
       "Bash(scutil --get LocalHostName)",
-      "Bash(/usr/bin/security find-generic-password *)"
+      "Bash(/usr/bin/security find-generic-password *)",
+      "Bash(curl *)",
+      "Bash(APP_ENV=test bundle exec rake test)",
+      "Bash(APP_ENV=test bundle exec rake test TEST=test/test_esa_naming.rb)",
+      "Bash(APP_ENV=production SINCE=2026-04-16 BEFORE=2026-04-17 DEBUG=1 bundle exec *)",
+      "Bash(APP_ENV=production bundle exec rake db:scan_pollution)",
+      "Bash(APP_ENV=production bundle exec rake db:scan_contamination)",
+      "Bash(APP_ENV=production bundle exec rake esa:find_duplicates DATE=2026-04-16)",
+      "Bash(APP_ENV=production bundle exec rake esa:find_duplicates DATE=2026-04-15)",
+      "Bash(APP_ENV=production bundle exec rake db:stats)"
     ]
   }
 }

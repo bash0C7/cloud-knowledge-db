@@ -120,6 +120,7 @@ end
 def do_esa(key, dir:)
   require 'bundler/setup'
   require_relative 'lib/cloud_knowledge_db/esa_writer'
+  require_relative 'lib/cloud_knowledge_db/esa_naming'
   require_relative 'lib/cloud_knowledge_db/daily_summarizer'
 
   src_cfg = cfg['sources'][key] or abort "unknown source: #{key}"
@@ -130,11 +131,6 @@ def do_esa(key, dir:)
   end
 
   esa_cfg = cfg.dig('esa', 'sources', key) or abort "no esa.sources.#{key} in env yml"
-  writer  = CloudKnowledgeDb::EsaWriter.new(
-    team:     cfg['esa']['team'],
-    category: esa_cfg['category'],
-    wip:      cfg['esa']['wip']
-  )
 
   summarizer = CloudKnowledgeDb::DailySummarizer.new(model: cfg['models']['daily_summarizer'] || 'opus')
 
@@ -151,10 +147,20 @@ def do_esa(key, dir:)
     end
     next if articles.empty?
 
-    body_md = summarizer.summarize(provider_short: src_cfg['short_name'], date: date, translated_articles: articles)
-    full_path = "#{esa_cfg['category']}/#{date.tr('-','/')}/#{date}-#{src_cfg['short_name']}-cloud-changes"
-    result = writer.post(name: full_path, body_md: body_md)
-    puts "Posted: ##{result['number']} #{result['full_name']}" if result['number']
+    begin
+      body_md = summarizer.summarize(provider_short: src_cfg['short_name'], date: date, translated_articles: articles)
+      writer  = CloudKnowledgeDb::EsaWriter.new(
+        team:     cfg['esa']['team'],
+        category: CloudKnowledgeDb::EsaNaming.build_category(prefix: esa_cfg['category'], date: date),
+        wip:      cfg['esa']['wip']
+      )
+      name    = CloudKnowledgeDb::EsaNaming.build_name(date: date, short_name: src_cfg['short_name'])
+      result  = writer.post(name: name, body_md: body_md)
+      puts "Posted: ##{result['number']} #{result['full_name']}" if result['number']
+    rescue => e
+      warn "esa post failed for #{key}/#{date}: #{e.class}: #{e.message}"
+      raise
+    end
   end
 end
 
@@ -389,23 +395,34 @@ task :daily do
   CloudKnowledgeDb::Config.ensure_write_host!
 
   before = ENV['BEFORE'] ? Date.parse(ENV['BEFORE']) : Date.today
-  since  = ENV['SINCE']  ? Date.parse(ENV['SINCE'])  : (before - 1)
 
   data = TB.load(LAST_RUN_PATH)
+
+  since = if ENV['SINCE']
+            Date.parse(ENV['SINCE'])
+          else
+            floor = TB.recommended_since_floor(data, cfg['sources'].keys)
+            floor ? Date.parse(floor) : (before - 1)
+          end
 
   cfg['sources'].keys.each do |key|
     puts "==== #{key} (#{since}..#{before}) ===="
     data = TB.mark_started(data, key, before: before, at: Time.now)
     TB.save(LAST_RUN_PATH, data)
 
-    dir = do_fetch(key, since: since.to_time, before: before.to_time)
+    begin
+      dir = do_fetch(key, since: since.to_time, before: before.to_time)
 
-    do_translate(key, dir: dir)
-    do_import(key, dir: dir)
-    do_esa(key, dir: dir)
+      do_translate(key, dir: dir)
+      do_import(key, dir: dir)
+      do_esa(key, dir: dir)
 
-    data = TB.mark_completed(data, key, before: before, at: Time.now,
-      models_used: { 'translator' => cfg['models']['translator'], 'daily_summarizer' => cfg['models']['daily_summarizer'] })
-    TB.save(LAST_RUN_PATH, data)
+      data = TB.mark_completed(data, key, before: before, at: Time.now,
+        models_used: { 'translator' => cfg['models']['translator'], 'daily_summarizer' => cfg['models']['daily_summarizer'] })
+      TB.save(LAST_RUN_PATH, data)
+    rescue => e
+      warn "SKIP #{key}: #{e.class}: #{e.message}"
+      warn e.backtrace.first(5).join("\n") if ENV['DEBUG']
+    end
   end
 end

@@ -8,14 +8,14 @@ sources:
 
   gcp_blog:
     short_name: gcp
-    feed_url: https://cloud.google.com/blog/products/gcp/rss
+    feed_url: https://cloudblog.withgoogle.com/products/gcp/rss/
     adapter: rss
     source_article: gcp/blogs/products
     source_original: gcp/blogs/products/original
 
   gws_blog:
     short_name: gws
-    feed_url: https://workspace.google.com/blog/rss
+    feed_url: https://feeds.feedburner.com/GoogleAppsUpdates
     adapter: rss
     source_article: gws/blogs/all
     source_original: gws/blogs/all/original
