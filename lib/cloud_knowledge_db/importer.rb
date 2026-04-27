@@ -3,6 +3,8 @@ require_relative 'config'
 
 module CloudKnowledgeDb
   class Importer
+    REPLACEMENT_CHAR = "\u{FFFD}"
+
     def initialize(config: Config.load)
       @source_lang = build_source_lang_map(config['sources'] || {})
     end
@@ -11,7 +13,15 @@ module CloudKnowledgeDb
     # rejection reason string when any predicate rejects.
     def validate(content:, source:)
       return "unknown_source: #{source.inspect}" if unknown_source?(source)
+      return 'mojibake: U+FFFD replacement char present' if self.class.mojibake?(content)
       nil
+    end
+
+    # Class-level mirrors so db:scan_pollution can reuse the predicates
+    # without instantiating an Importer.
+    def self.mojibake?(content)
+      return false if content.nil?
+      content.include?(REPLACEMENT_CHAR)
     end
 
     private
