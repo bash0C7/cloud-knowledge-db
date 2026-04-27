@@ -4,29 +4,34 @@ sources:
     feed_url: https://aws.amazon.com/blogs/aws/feed/
     adapter: rss
     source: aws/blogs/news
+    expected_lang: en
 
   gcp_blog:
     short_name: gcp
     feed_url: https://cloudblog.withgoogle.com/products/gcp/rss/
     adapter: rss
     source: gcp/blogs/products
+    expected_lang: en
 
   gws_blog:
     short_name: gws
     feed_url: https://feeds.feedburner.com/GoogleAppsUpdates
     adapter: rss
     source: gws/blogs/all
+    expected_lang: en
 
   gitlab_blog:
     short_name: gitlab
     feed_url: https://about.gitlab.com/atom.xml
     adapter: rss
     source: gitlab/blogs/all
+    expected_lang: en
 
   classmethod_blog:
     short_name: classmethod
     feed_url: https://dev.classmethod.jp/feed/
     adapter: classmethod
+    expected_lang: ja
     tag_to_source:
       AWS:          aws/classmethod
       "Google Cloud": gcp/classmethod
