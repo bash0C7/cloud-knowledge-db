@@ -103,4 +103,12 @@ class ImporterTest < Test::Unit::TestCase
     assert_true  CloudKnowledgeDb::Importer.language_mismatch?(en_text, 'ja')
     assert_false CloudKnowledgeDb::Importer.language_mismatch?(ja_text, 'ja')
   end
+
+  def test_language_mismatch_does_not_count_cjk_punctuation_as_kana
+    # English article quoting Japanese punctuation (e.g. screenshot caption,
+    # quoted product tagline). CJK punctuation U+3000-U+303F must NOT be
+    # treated as kana, otherwise legit English rows get false-positive rejected.
+    body = 'AWS announced a new feature called "Bedrock"' * 5 + '、。「」' * 3
+    assert_false CloudKnowledgeDb::Importer.language_mismatch?(body, 'en')
+  end
 end
