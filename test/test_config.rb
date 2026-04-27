@@ -14,4 +14,13 @@ class ConfigTest < Test::Unit::TestCase
     cfg = CloudKnowledgeDb::Config.load
     assert_equal({ 'provider' => 'local_ollama', 'model' => 'gemma4:e2b' }, cfg['models']['daily_summarizer'])
   end
+
+  def test_each_source_declares_expected_lang
+    cfg = CloudKnowledgeDb::Config.load
+    cfg['sources'].each do |key, src|
+      lang = src['expected_lang']
+      assert(['en', 'ja'].include?(lang),
+        "source '#{key}' must declare expected_lang as 'en' or 'ja' (got: #{lang.inspect})")
+    end
+  end
 end
