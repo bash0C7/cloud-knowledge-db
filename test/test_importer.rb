@@ -67,6 +67,12 @@ class ImporterTest < Test::Unit::TestCase
     assert_false CloudKnowledgeDb::Importer.html_heavy?(nil)
   end
 
+  def test_html_heavy_detects_tags_with_long_attributes
+    long_attr = 'class="' + 'x' * 250 + '"'
+    body = "<div #{long_attr}>content</div>" * 5
+    assert_true CloudKnowledgeDb::Importer.html_heavy?(body)
+  end
+
   # --- language_mismatch? ---
 
   def test_validate_rejects_japanese_in_english_source
