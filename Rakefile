@@ -248,6 +248,7 @@ namespace :db do
     require 'bundler/setup'
     require 'sqlite3'
     require 'sqlite_vec'
+    require_relative 'lib/cloud_knowledge_db/importer'
 
     db_path = File.expand_path(cfg['db_path'], __dir__)
     abort "DB not found: #{db_path}" unless File.exist?(db_path)
@@ -261,6 +262,15 @@ namespace :db do
       rows = db.execute('SELECT id, source FROM memories WHERE content LIKE ?', ["%#{m}%"])
       rows.each { |id, src| puts "marker[#{m}] id=#{id} source=#{src}"; bad_ids << id }
     end
+
+    importer = CloudKnowledgeDb::Importer.new
+    db.execute('SELECT id, source, content FROM memories').each do |id, src, content|
+      reason = importer.validate(content: content, source: src)
+      next unless reason
+      puts "validation[#{reason}] id=#{id} source=#{src}"
+      bad_ids << id
+    end
+
     puts "----"
     dup = db.execute(<<~SQL)
       SELECT source, substr(content,1,200), GROUP_CONCAT(id), COUNT(*) c
