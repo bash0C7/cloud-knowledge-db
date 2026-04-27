@@ -26,6 +26,12 @@ class ImporterTest < Test::Unit::TestCase
     assert_nil reason
   end
 
+  def test_validate_returns_missing_source_reason_when_source_nil
+    reason = @importer.validate(content: 'hello world', source: nil)
+    assert_not_nil reason
+    assert_match(/missing_source/, reason)
+  end
+
   # --- mojibake? ---
 
   def test_validate_rejects_content_with_replacement_char
