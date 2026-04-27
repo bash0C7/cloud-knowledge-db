@@ -275,15 +275,15 @@ namespace :db do
         puts "mojibake id=#{id} source=#{src}"
         bad_ids << id
       end
-      if CloudKnowledgeDb::Importer.html_heavy?(content)
-        puts "html_heavy id=#{id} source=#{src}"
-        bad_ids << id
-      end
       expected = importer.source_lang[src]
       if expected && CloudKnowledgeDb::Importer.language_mismatch?(content, expected)
-        puts "language_mismatch[expected=#{expected}] id=#{id} source=#{src}"
+        label = CloudKnowledgeDb::Importer.html_heavy?(content) ? 'html_heavy+language_mismatch' : 'language_mismatch'
+        puts "#{label}[expected=#{expected}] id=#{id} source=#{src}"
         bad_ids << id
       end
+      # html_heavy alone is not surfaced — Blogger boilerplate produces too many
+      # false positives on gws/blogs/all. Combined with language_mismatch above
+      # it gets a distinct label so triage can prioritize.
     end
 
     puts "----"
