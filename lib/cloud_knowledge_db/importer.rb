@@ -6,6 +6,9 @@ module CloudKnowledgeDb
     REPLACEMENT_CHAR     = "\u{FFFD}"
     HTML_RATIO_THRESHOLD = 0.05
     HTML_TAG_REGEX       = /<[^>]{1,200}>/.freeze
+    KANA_REGEX           = /[぀-ヿ･-ﾟ]/.freeze
+    KANA_THRESHOLD       = 0.05
+    LANG_MIN_CONTENT_LEN = 50
 
     def initialize(config: Config.load)
       @source_lang = build_source_lang_map(config['sources'] || {})
@@ -17,6 +20,10 @@ module CloudKnowledgeDb
       return "unknown_source: #{source.inspect}" if unknown_source?(source)
       return 'mojibake: U+FFFD replacement char present' if self.class.mojibake?(content)
       return "html_heavy: tag char ratio > #{HTML_RATIO_THRESHOLD}" if self.class.html_heavy?(content)
+      expected = @source_lang[source]
+      if expected && self.class.language_mismatch?(content, expected)
+        return "language_mismatch: source=#{source} expected=#{expected}"
+      end
       nil
     end
 
@@ -31,6 +38,17 @@ module CloudKnowledgeDb
       return false if content.nil? || content.empty?
       tag_chars = content.scan(HTML_TAG_REGEX).sum(&:length)
       (tag_chars.to_f / content.length) > HTML_RATIO_THRESHOLD
+    end
+
+    def self.language_mismatch?(content, expected_lang, kana_threshold: KANA_THRESHOLD)
+      return false if content.nil? || content.length < LANG_MIN_CONTENT_LEN
+      kana_count = content.scan(KANA_REGEX).length
+      ratio = kana_count.to_f / content.length
+      case expected_lang
+      when 'en' then ratio >= kana_threshold
+      when 'ja' then ratio < kana_threshold
+      else false
+      end
     end
 
     private
