@@ -57,7 +57,7 @@ class ImporterTest < Test::Unit::TestCase
 
   def test_html_heavy_class_method_mirrors_instance
     heavy = '<div>x</div>' * 10
-    light = 'plain text with one <a>link</a> ' * 50
+    light = 'plain prose text. ' * 100 + '<a href="x">link</a>'
     assert_true CloudKnowledgeDb::Importer.html_heavy?(heavy)
     assert_false CloudKnowledgeDb::Importer.html_heavy?(light)
   end
