@@ -66,4 +66,41 @@ class ImporterTest < Test::Unit::TestCase
     assert_false CloudKnowledgeDb::Importer.html_heavy?('')
     assert_false CloudKnowledgeDb::Importer.html_heavy?(nil)
   end
+
+  # --- language_mismatch? ---
+
+  def test_validate_rejects_japanese_in_english_source
+    body = 'AWSが、Amazon Bedrockを通じてClaude Opus 4.7をローンチしました。' * 5
+    reason = @importer.validate(content: body, source: 'aws/blogs/news')
+    assert_not_nil reason
+    assert_match(/language_mismatch/, reason)
+  end
+
+  def test_validate_passes_english_in_english_source
+    body = 'AWS announced today that Claude Opus is now available in Amazon Bedrock for production use.' * 3
+    reason = @importer.validate(content: body, source: 'aws/blogs/news')
+    assert_nil reason
+  end
+
+  def test_validate_rejects_english_only_in_japanese_source
+    body = 'This is purely English content with no kana characters whatsoever in the body.' * 3
+    reason = @importer.validate(content: body, source: 'aws/classmethod')
+    assert_not_nil reason
+    assert_match(/language_mismatch/, reason)
+  end
+
+  def test_language_mismatch_skips_check_for_short_content
+    short = 'short'
+    assert_false CloudKnowledgeDb::Importer.language_mismatch?(short, 'en')
+    assert_false CloudKnowledgeDb::Importer.language_mismatch?(short, 'ja')
+  end
+
+  def test_language_mismatch_class_method_mirrors_instance
+    en_text = 'This is purely English content with no kana characters at all.' * 3
+    ja_text = 'これは日本語の本文で、ひらがなとカタカナがたくさん含まれてます。' * 3
+    assert_true  CloudKnowledgeDb::Importer.language_mismatch?(ja_text, 'en')
+    assert_false CloudKnowledgeDb::Importer.language_mismatch?(en_text, 'en')
+    assert_true  CloudKnowledgeDb::Importer.language_mismatch?(en_text, 'ja')
+    assert_false CloudKnowledgeDb::Importer.language_mismatch?(ja_text, 'ja')
+  end
 end
