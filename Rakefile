@@ -68,16 +68,26 @@ end
 def do_import(key, dir:)
   require 'bundler/setup'
   require 'ruby_knowledge_store'
+  require_relative 'lib/cloud_knowledge_db/importer'
 
   src_cfg = cfg['sources'][key] or abort "unknown source: #{key}"
   pattern = "*-#{src_cfg['short_name']}-*.md"
 
-  store = build_store
-  stored, skipped = 0, 0
+  store    = build_store
+  importer = CloudKnowledgeDb::Importer.new
+  stored, skipped, rejected = 0, 0, 0
 
   Dir.glob(File.join(dir, pattern)).each do |path|
     fm, body = parse_md(path)
     next if fm.nil? || body.nil?
+
+    reason = importer.validate(content: body, source: fm['source'])
+    if reason
+      warn "import #{key}: REJECT #{File.basename(path)} reason=#{reason}"
+      rejected += 1
+      next
+    end
+
     result = store.store(body, source: fm['source'])
     if result.nil?
       skipped += 1
@@ -85,7 +95,7 @@ def do_import(key, dir:)
       stored += 1
     end
   end
-  puts "import #{key}: stored=#{stored}, skipped=#{skipped}"
+  puts "import #{key}: stored=#{stored}, skipped=#{skipped}, rejected=#{rejected}"
 end
 
 def do_esa(key, dir:)
