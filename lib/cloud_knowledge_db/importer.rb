@@ -17,6 +17,7 @@ module CloudKnowledgeDb
     # Returns nil when content passes all checks; returns a human-readable
     # rejection reason string when any predicate rejects.
     def validate(content:, source:)
+      return 'missing_source: frontmatter has no source key' if source.nil?
       return "unknown_source: #{source.inspect}" if unknown_source?(source)
       return 'mojibake: U+FFFD replacement char present' if self.class.mojibake?(content)
       return "html_heavy: tag char ratio > #{HTML_RATIO_THRESHOLD}" if self.class.html_heavy?(content)
