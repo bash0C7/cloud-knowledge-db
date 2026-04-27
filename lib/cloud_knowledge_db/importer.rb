@@ -5,7 +5,7 @@ module CloudKnowledgeDb
   class Importer
     REPLACEMENT_CHAR     = "\u{FFFD}"
     HTML_RATIO_THRESHOLD = 0.05
-    HTML_TAG_REGEX       = /<[^>]{1,200}>/.freeze
+    HTML_TAG_REGEX       = /<[^>]+>/.freeze
     KANA_REGEX           = /[぀-ヿ･-ﾟ]/.freeze
     KANA_THRESHOLD       = 0.05
     LANG_MIN_CONTENT_LEN = 50
