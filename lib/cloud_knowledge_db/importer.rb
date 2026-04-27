@@ -10,6 +10,9 @@ module CloudKnowledgeDb
     KANA_THRESHOLD       = 0.05
     LANG_MIN_CONTENT_LEN = 50
 
+    # Hash<String, String> — DB source value -> expected_lang ('en' | 'ja')
+    attr_reader :source_lang
+
     def initialize(config: Config.load)
       @source_lang = build_source_lang_map(config['sources'] || {})
     end
@@ -28,8 +31,8 @@ module CloudKnowledgeDb
       nil
     end
 
-    # Class-level mirrors so db:scan_pollution can reuse the predicates
-    # without instantiating an Importer.
+    # Class-level mirrors used by db:scan_pollution to apply each predicate
+    # independently per row, so the scan output can label which check fired.
     def self.mojibake?(content)
       return false if content.nil?
       content.include?(REPLACEMENT_CHAR)

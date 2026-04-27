@@ -265,10 +265,25 @@ namespace :db do
 
     importer = CloudKnowledgeDb::Importer.new
     db.execute('SELECT id, source, content FROM memories').each do |id, src, content|
-      reason = importer.validate(content: content, source: src)
-      next unless reason
-      puts "validation[#{reason}] id=#{id} source=#{src}"
-      bad_ids << id
+      next if content.nil? || content.empty?
+
+      unless importer.source_lang.key?(src)
+        puts "unknown_source id=#{id} source=#{src}"
+        bad_ids << id
+      end
+      if CloudKnowledgeDb::Importer.mojibake?(content)
+        puts "mojibake id=#{id} source=#{src}"
+        bad_ids << id
+      end
+      if CloudKnowledgeDb::Importer.html_heavy?(content)
+        puts "html_heavy id=#{id} source=#{src}"
+        bad_ids << id
+      end
+      expected = importer.source_lang[src]
+      if expected && CloudKnowledgeDb::Importer.language_mismatch?(content, expected)
+        puts "language_mismatch[expected=#{expected}] id=#{id} source=#{src}"
+        bad_ids << id
+      end
     end
 
     puts "----"
