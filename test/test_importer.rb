@@ -48,11 +48,24 @@ class ImporterTest < Test::Unit::TestCase
 
   # --- html_heavy? ---
 
-  def test_validate_rejects_html_heavy_content_above_5pct
-    body = '<h3 class="x">Heading</h3>' * 20 + 'a' * 100
+  def test_validate_passes_html_heavy_content_when_language_correct
+    # gws Blogger HTML pattern: heavy HTML markup but legitimate English prose.
+    # html_heavy alone must NOT reject — the residual HTML is a content-cleaning
+    # issue but the row's data is still useful. Reject only when paired with
+    # another red flag (language_mismatch, mojibake).
+    body = '<h3 class="x">Heading</h3>' * 20 + 'English text describing the new feature in detail. ' * 30
+    reason = @importer.validate(content: body, source: 'gws/blogs/all')
+    assert_nil reason
+  end
+
+  def test_validate_rejects_html_heavy_combined_with_language_mismatch
+    # Japanese translation under en source AND heavy HTML — this is the real
+    # 4-17 pollution shape that we want to keep rejecting.
+    body = '<h3 class="x">日本語の見出し</h3>' * 5 +
+           'これは日本語訳のコンテンツです。本文がたくさん含まれています。' * 10
     reason = @importer.validate(content: body, source: 'gws/blogs/all')
     assert_not_nil reason
-    assert_match(/html_heavy/, reason)
+    assert_match(/language_mismatch/, reason)
   end
 
   def test_validate_passes_content_with_minimal_tags
