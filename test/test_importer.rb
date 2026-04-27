@@ -25,4 +25,18 @@ class ImporterTest < Test::Unit::TestCase
     reason = @importer.validate(content: body, source: 'aws/classmethod')
     assert_nil reason
   end
+
+  # --- mojibake? ---
+
+  def test_validate_rejects_content_with_replacement_char
+    body = "What�s new in Git 2.54.0?"
+    reason = @importer.validate(content: body, source: 'gitlab/blogs/all')
+    assert_not_nil reason
+    assert_match(/mojibake/, reason)
+  end
+
+  def test_mojibake_class_method_mirrors_instance
+    assert_true CloudKnowledgeDb::Importer.mojibake?("Here�s the deal")
+    assert_false CloudKnowledgeDb::Importer.mojibake?('clean ASCII text')
+  end
 end
