@@ -32,6 +32,7 @@ Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace / GitL
 | `lib/cloud_knowledge_db/esa_writer.rb` | esa API posting |
 | `lib/cloud_knowledge_db/trunk_bookmark.rb` | Two-stage bookmark management (load/save/mark_started/mark_completed/status/recommended_since_floor) |
 | `lib/cloud_knowledge_db/config.rb` | APP_ENV config load; `Config.ensure_write_host!` gates writes by LocalHostName |
+| `lib/cloud_knowledge_db/db_syncer.rb` | `DbSyncer.sync(source:, destination:)` — checkpoint WAL, drop stale wal/shm at destination, atomic rename copy for `db_copy_to` |
 
 ---
 
