@@ -162,7 +162,7 @@ bundle exec rake smoke:rss_endpoints
 |---|---|---|---|---|
 | development (default) | `db/cloud_knowledge_development.db` | `bist` | true | `development/cloud-trunk-changes/` |
 | test | `db/cloud_knowledge_test.db` | `bist` | true | `test/cloud-trunk-changes/` |
-| production | `~/Library/.../chiebukuro-mcp/db/cloud_knowledge.db` (iCloud) | `bash-trunk-changes` | false | `production/cloud-trunk-changes/` |
+| production | `db/cloud_knowledge.db` → iCloud にミラー (`db_copy_to`) | `bash-trunk-changes` | false | `production/cloud-trunk-changes/` |
 
 ---
 
@@ -233,6 +233,31 @@ Override with `ALLOW_WRITE=1` (escape hatch for exceptional cases).
 
 ---
 
+## DB Sync (production)
+
+production 限定で、`rake daily` の最終ステップでローカル DB を iCloud Drive 上の chiebukuro-mcp 参照先にコピーする。`config/environments/production.yml` の `db_copy_to` キーで destination を指定。
+
+### フロー
+1. ローカル `db/cloud_knowledge.db` で 5 並列スレッドが fetch / import / esa を実行
+2. 各 thread の `do_import` 終端で `ensure { store.close }` → WAL を main DB に書き戻し
+3. 全 thread 完了後に `CloudKnowledgeDb::DbSyncer.sync(source:, destination:)` を呼ぶ
+   - `PRAGMA wal_checkpoint(TRUNCATE)` で source の WAL を main DB にマージ＋空に
+   - destination 側の `.db-wal` / `.db-shm` 残骸を削除
+   - `FileUtils.mkdir_p` + `FileUtils.cp` で単一 .db ファイルをコピー
+4. iCloud Drive のファイル同期で他 Mac に伝播 → 各端末の `chiebukuro-mcp` が read-only で参照
+
+### この方式を採用した理由
+- daily の並列書き込み中に iCloud 同期が WAL を中途半端にアップロードする事故を回避
+- 兄弟リポ `ruby-knowledge-db` と同じ `db_copy_to` パターン
+- 他 Mac は受け身で iCloud 同期を受けるだけ。書き込みは host guard で `MacBook-Air-M3` 限定
+
+### 実装
+- `lib/cloud_knowledge_db/db_syncer.rb` — sync 本体
+- `Rakefile` の `:daily` 末尾 — `cfg['db_copy_to']` 設定時のみ呼び出し
+- `test/test_db_syncer.rb` — sync 契約のテスト
+
+---
+
 ## 1-Article-1-Record Design
 
 Each article produces exactly one DB record holding the raw source-language content:
@@ -270,6 +295,8 @@ Entry in `~/chiebukuro-mcp/chiebukuro.json`:
 
 This repo owns `cloud_knowledge.db` generation and `ruby-knowledge-store` migration application.
 This repo does NOT own recipe / clarification_field / column-hint data — that lives in dotfiles meta_patches.
+
+書き込み Mac (`MacBook-Air-M3`) は `db/cloud_knowledge.db` ローカルに書き、`rake daily` 完走時に iCloud 上の参照先へ単一 .db ファイルとしてコピーする。他 Mac は iCloud Drive のファイル同期で受信し、各端末の `chiebukuro-mcp` が read-only で参照。詳細は「## DB Sync (production)」を参照。
 
 ---
 
