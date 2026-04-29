@@ -3,6 +3,7 @@ require 'rake/testtask'
 require_relative 'lib/cloud_knowledge_db/config'
 require_relative 'lib/cloud_knowledge_db/trunk_bookmark'
 require_relative 'lib/cloud_knowledge_db/ollama_runner'
+require_relative 'lib/cloud_knowledge_db/db_syncer'
 
 Rake::TestTask.new(:test) do |t|
   t.libs << 'test'
@@ -77,25 +78,29 @@ def do_import(key, dir:)
   importer = CloudKnowledgeDb::Importer.new
   stored, skipped, rejected = 0, 0, 0
 
-  Dir.glob(File.join(dir, pattern)).each do |path|
-    fm, body = parse_md(path)
-    next if fm.nil? || body.nil?
+  begin
+    Dir.glob(File.join(dir, pattern)).each do |path|
+      fm, body = parse_md(path)
+      next if fm.nil? || body.nil?
 
-    reason = importer.validate(content: body, source: fm['source'])
-    if reason
-      warn "import #{key}: REJECT #{File.basename(path)} reason=#{reason}"
-      rejected += 1
-      next
-    end
+      reason = importer.validate(content: body, source: fm['source'])
+      if reason
+        warn "import #{key}: REJECT #{File.basename(path)} reason=#{reason}"
+        rejected += 1
+        next
+      end
 
-    result = store.store(body, source: fm['source'])
-    if result.nil?
-      skipped += 1
-    else
-      stored += 1
+      result = store.store(body, source: fm['source'])
+      if result.nil?
+        skipped += 1
+      else
+        stored += 1
+      end
     end
+    puts "import #{key}: stored=#{stored}, skipped=#{skipped}, rejected=#{rejected}"
+  ensure
+    store.close
   end
-  puts "import #{key}: stored=#{stored}, skipped=#{skipped}, rejected=#{rejected}"
 end
 
 def do_esa(key, dir:)
@@ -454,4 +459,11 @@ task :daily do
 
   threads.each(&:join)
   puts "[timing] daily WALLCLOCK #{(Time.now - t_total).round(2)}s"
+
+  if (copy_to = cfg['db_copy_to'])
+    src = File.expand_path(cfg['db_path'], __dir__)
+    dst = File.expand_path(copy_to)
+    CloudKnowledgeDb::DbSyncer.sync(source: src, destination: dst)
+    puts "[sync] db copied to #{dst}"
+  end
 end
