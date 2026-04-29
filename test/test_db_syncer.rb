@@ -61,8 +61,8 @@ class DbSyncerTest < Test::Unit::TestCase
 
       DS.sync(source: src, destination: dst)
 
-      assert(!File.exist?(dst + '-wal'), 'stale -wal at destination must be removed')
-      assert(!File.exist?(dst + '-shm'), 'stale -shm at destination must be removed')
+      assert_false(File.exist?(dst + '-wal'), 'stale -wal at destination must be removed')
+      assert_false(File.exist?(dst + '-shm'), 'stale -shm at destination must be removed')
 
       dst_db = SQLite3::Database.new(dst)
       content = dst_db.get_first_value('SELECT content FROM memories')
@@ -71,7 +71,7 @@ class DbSyncerTest < Test::Unit::TestCase
     end
   end
 
-  def test_sync_truncates_source_wal_via_checkpoint
+  def test_sync_captures_wal_contents_via_checkpoint
     Dir.mktmpdir do |dir|
       src = File.join(dir, 'src.db')
       dst = File.join(dir, 'dst.db')
@@ -80,17 +80,30 @@ class DbSyncerTest < Test::Unit::TestCase
       db.execute('PRAGMA journal_mode=WAL')
       db.execute('CREATE TABLE memories (id INTEGER PRIMARY KEY, content TEXT)')
       db.execute("INSERT INTO memories (content) VALUES ('one')")
-      # Intentionally do NOT close — sync must still produce a consistent destination
-      # because it issues PRAGMA wal_checkpoint(TRUNCATE) on its own connection.
+      db.close
 
       DS.sync(source: src, destination: dst)
 
       dst_db = SQLite3::Database.new(dst)
       count = dst_db.get_first_value('SELECT COUNT(*) FROM memories')
       dst_db.close
-      assert_equal(1, count, 'sync must capture WAL contents via checkpoint')
+      assert_equal(1, count, 'sync must capture WAL-mode contents at destination')
+    end
+  end
 
+  def test_sync_does_not_leave_tmp_artifact
+    Dir.mktmpdir do |dir|
+      src = File.join(dir, 'src.db')
+      dst = File.join(dir, 'dst.db')
+
+      db = SQLite3::Database.new(src)
+      db.execute('CREATE TABLE memories (id INTEGER PRIMARY KEY)')
       db.close
+
+      DS.sync(source: src, destination: dst)
+
+      stragglers = Dir.glob(File.join(dir, 'dst.db.tmp.*'))
+      assert_equal([], stragglers, 'sync must rename tmp away, not leave dst.db.tmp.<pid>')
     end
   end
 end
