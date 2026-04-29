@@ -60,9 +60,11 @@ The current default has translation/summarization on local ollama and only `clas
 |---|---|---|---|---|
 | development (default) | `db/cloud_knowledge_development.db` | `bist` | true | `development/cloud-trunk-changes/` |
 | test | `db/cloud_knowledge_test.db` | `bist` | true | `test/cloud-trunk-changes/` |
-| production | `~/Library/.../chiebukuro-mcp/db/cloud_knowledge.db` (iCloud) | `bash-trunk-changes` | false | `production/cloud-trunk-changes/` |
+| production | `db/cloud_knowledge.db` → iCloud にミラー (`db_copy_to`) | `bash-trunk-changes` | false | `production/cloud-trunk-changes/` |
 
 The production DB write host is gated via `scutil --get LocalHostName`; only `allowed_write_host` in `config/environments/production.yml` may write.
+
+After `rake daily` finishes, `CloudKnowledgeDb::DbSyncer` checkpoints the WAL, drops stale `.db-wal` / `.db-shm` at the destination, and atomic-renames a tmp copy onto `db_copy_to` (iCloud Drive). Other Macs receive the snapshot via iCloud file sync and read it through `chiebukuro-mcp`. See the **DB Sync (production)** section of `CLAUDE.md` for details.
 
 ---
 
