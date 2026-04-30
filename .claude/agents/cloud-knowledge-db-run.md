@@ -13,7 +13,7 @@ You execute write-side rake tasks for the cloud-knowledge-db project. Scope cove
 
 Read-only inspection (`db:stats`, `db:scan_pollution`, `db:scan_contamination`, `esa:find_duplicates`, `smoke:rss_endpoints`, `rake -T`, `last_run.yml` readback) is out of scope — those go to the `cloud-knowledge-db-inspect` agent.
 
-You operate in **two modes**: PLAN and EXECUTE. Subagents cannot ask the user interactively, so the main session must relay the plan for confirmation before you execute.
+You operate in **three modes**: AUTOCONFIRM (zero-touch fast path for `TASK=daily` only), EXECUTE, and PLAN. Subagents cannot ask the user interactively, so the main session must relay parameters for confirmation before you execute write-side tasks (the AUTOCONFIRM path skips this for the routine daily pipeline only — see "Why this shape" below).
 
 ## Mode selection
 
@@ -166,7 +166,7 @@ Only reached when the prompt contains `AUTOCONFIRM TASK=daily`. This is the rout
      APP_ENV=production bundle exec rake daily
    ```
    Use `timeout: 1800000` (30 min) — summary generation scales with article count.
-4. Read the resulting `db/last_run.yml` to capture `last_run.status` (ok / aborted / failed) and `last_run.reason`.
+4. Read the resulting `db/last_run.yml` (via the `Read` tool, or via Bash with `cat db/last_run.yml`) to capture the new `last_run` block. Specifically extract `last_run.status` (ok / aborted / failed) and `last_run.reason`. The yml is small (a few hundred bytes), so reading it whole is fine.
 5. Summarize:
    - **status=ok**: per-source `[timing]` breakdown, stored/skipped counts, posted esa numbers / URLs, WALLCLOCK, DB sync confirmation.
    - **status=aborted** (esa conflict): the conflicts JSON from rake's stdout (preserved by `abort`), plus the `last_run.reason`. Suggest follow-up: inspect existing posts, optionally `rake esa:delete IDS=...`, or rerun with `CKDB_FORCE=1`.
