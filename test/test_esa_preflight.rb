@@ -3,17 +3,8 @@ require_relative 'test_helper'
 require 'date'
 require 'cloud_knowledge_db/esa_preflight'
 
-# Simple mock response object for testing (replaces OpenStruct)
-class MockHttpResponse
-  attr_reader :code, :body
-
-  def initialize(code:, body:)
-    @code = code
-    @body = body
-  end
-end
-
 class EsaPreflightTest < Test::Unit::TestCase
+  MockHttpResponse = Struct.new(:code, :body, keyword_init: true)
   def base_cfg
     {
       'esa' => {
