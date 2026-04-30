@@ -416,11 +416,22 @@ namespace :smoke do
   end
 end
 
+def record_run(status, reason: nil)
+  data = TB.load(LAST_RUN_PATH)
+  data['last_run'] = {
+    'status'      => status,
+    'finished_at' => Time.now.iso8601,
+    'reason'      => reason
+  }
+  TB.save(LAST_RUN_PATH, data)
+end
+
 desc 'Run the full daily pipeline across all sources'
 task :daily do
   require 'bundler/setup'
   require 'date'
   require 'time'
+  require 'json'
   # Hoist per-phase requires out of the source threads so concurrent first-require
   # races (autoload / constant resolution) cannot happen.
   require 'cloud_blog_collector'
@@ -433,67 +444,78 @@ task :daily do
   CloudKnowledgeDb::Config.ensure_write_host!
   CloudKnowledgeDb::OllamaRunner.ensure_available!
 
-  before = ENV['BEFORE'] ? Date.parse(ENV['BEFORE']) : Date.today
+  since, before = resolve_daily_window
 
-  data = TB.load(LAST_RUN_PATH)
+  searcher  = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new
+  conflicts = CloudKnowledgeDb::EsaPreflight.conflicts(
+    cfg: cfg, since: since, before: before, searcher: searcher
+  )
 
-  since = if ENV['SINCE']
-            Date.parse(ENV['SINCE'])
-          else
-            floor = TB.recommended_since_floor(data, cfg['sources'].keys)
-            floor ? Date.parse(floor) : (before - 1)
-          end
+  unless conflicts.empty? || ENV['CKDB_FORCE'] == '1'
+    record_run('aborted', reason: "esa conflict: #{conflicts.size}件")
+    CloudKnowledgeDb::Notifier.notify(status: 'aborted', reason: "esa conflict: #{conflicts.size}件")
+    abort "=== daily aborted: esa conflicts ===\n#{JSON.pretty_generate(conflicts.map(&:to_h))}"
+  end
 
-  bookmark_mutex = Mutex.new
-  t_total = Time.now
+  begin
+    bookmark_mutex = Mutex.new
+    t_total = Time.now
 
-  threads = cfg['sources'].keys.map do |key|
-    Thread.new do
-      Thread.current.report_on_exception = true
-      t_src_start = Time.now
-      puts "==== #{key} (#{since}..#{before}) ===="
-
-      bookmark_mutex.synchronize do
-        d = TB.load(LAST_RUN_PATH)
-        d = TB.mark_started(d, key, before: before, at: Time.now)
-        TB.save(LAST_RUN_PATH, d)
-      end
-
-      begin
-        t0 = Time.now
-        dir = do_fetch(key, since: since.to_time, before: before.to_time)
-        puts "[timing] #{key} fetch   #{(Time.now - t0).round(2)}s"
-
-        t0 = Time.now
-        do_import(key, dir: dir)
-        puts "[timing] #{key} import  #{(Time.now - t0).round(2)}s"
-
-        t0 = Time.now
-        do_esa(key, dir: dir)
-        puts "[timing] #{key} esa     #{(Time.now - t0).round(2)}s"
-
-        puts "[timing] #{key} TOTAL   #{(Time.now - t_src_start).round(2)}s"
+    threads = cfg['sources'].keys.map do |key|
+      Thread.new do
+        Thread.current.report_on_exception = true
+        t_src_start = Time.now
+        puts "==== #{key} (#{since}..#{before}) ===="
 
         bookmark_mutex.synchronize do
           d = TB.load(LAST_RUN_PATH)
-          d = TB.mark_completed(d, key, before: before, at: Time.now,
-            models_used: { 'daily_summarizer' => cfg['models']['daily_summarizer'] })
+          d = TB.mark_started(d, key, before: before, at: Time.now)
           TB.save(LAST_RUN_PATH, d)
         end
-      rescue => e
-        warn "SKIP #{key}: #{e.class}: #{e.message}"
-        warn e.backtrace.first(5).join("\n") if ENV['DEBUG']
+
+        begin
+          t0 = Time.now
+          dir = do_fetch(key, since: since.to_time, before: before.to_time)
+          puts "[timing] #{key} fetch   #{(Time.now - t0).round(2)}s"
+
+          t0 = Time.now
+          do_import(key, dir: dir)
+          puts "[timing] #{key} import  #{(Time.now - t0).round(2)}s"
+
+          t0 = Time.now
+          do_esa(key, dir: dir)
+          puts "[timing] #{key} esa     #{(Time.now - t0).round(2)}s"
+
+          puts "[timing] #{key} TOTAL   #{(Time.now - t_src_start).round(2)}s"
+
+          bookmark_mutex.synchronize do
+            d = TB.load(LAST_RUN_PATH)
+            d = TB.mark_completed(d, key, before: before, at: Time.now,
+              models_used: { 'daily_summarizer' => cfg['models']['daily_summarizer'] })
+            TB.save(LAST_RUN_PATH, d)
+          end
+        rescue => e
+          warn "SKIP #{key}: #{e.class}: #{e.message}"
+          warn e.backtrace.first(5).join("\n") if ENV['DEBUG']
+        end
       end
     end
-  end
 
-  threads.each(&:join)
-  puts "[timing] daily WALLCLOCK #{(Time.now - t_total).round(2)}s"
+    threads.each(&:join)
+    puts "[timing] daily WALLCLOCK #{(Time.now - t_total).round(2)}s"
 
-  if (copy_to = cfg['db_copy_to'])
-    src = File.expand_path(cfg['db_path'], __dir__)
-    dst = File.expand_path(copy_to)
-    CloudKnowledgeDb::DbSyncer.sync(source: src, destination: dst)
-    puts "[sync] db copied to #{dst}"
+    if (copy_to = cfg['db_copy_to'])
+      src = File.expand_path(cfg['db_path'], __dir__)
+      dst = File.expand_path(copy_to)
+      CloudKnowledgeDb::DbSyncer.sync(source: src, destination: dst)
+      puts "[sync] db copied to #{dst}"
+    end
+
+    record_run('ok')
+    CloudKnowledgeDb::Notifier.notify(status: 'ok', since: since, before: before)
+  rescue => e
+    record_run('failed', reason: e.message[0, 200])
+    CloudKnowledgeDb::Notifier.notify(status: 'failed', reason: e.class.name)
+    raise
   end
 end
