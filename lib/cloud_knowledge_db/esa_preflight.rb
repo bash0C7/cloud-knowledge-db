@@ -1,5 +1,9 @@
 # frozen_string_literal: true
+require 'net/http'
+require 'uri'
+require 'json'
 require_relative 'esa_naming'
+require_relative 'esa_token'
 
 module CloudKnowledgeDb
   module EsaPreflight
@@ -39,6 +43,30 @@ module CloudKnowledgeDb
 
       def search(team:, category:, name:)
         @posts_by_query[[team, category, name]] || []
+      end
+    end
+
+    class DefaultSearcher
+      def initialize(cfg:, token: nil, http_runner: nil)
+        @cfg         = cfg
+        @token       = token || EsaToken.fetch
+        @http_runner = http_runner || method(:default_http_call)
+      end
+
+      def search(team:, category:, name:)
+        q = URI.encode_www_form_component("category:#{category} name:#{name}")
+        uri = URI("https://api.esa.io/v1/teams/#{team}/posts?q=#{q}&per_page=100")
+        req = Net::HTTP::Get.new(uri.request_uri)
+        req['Authorization'] = "Bearer #{@token}"
+        res = @http_runner.call(uri, req)
+        raise "esa API error (#{res.code}): #{res.body}" if res.code.to_i >= 400
+        JSON.parse(res.body)['posts'] || []
+      end
+
+      private
+
+      def default_http_call(uri, req)
+        Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(req) }
       end
     end
   end
