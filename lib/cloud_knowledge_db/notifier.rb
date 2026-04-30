@@ -26,5 +26,6 @@ module CloudKnowledgeDb
     def self.default_run(*args)
       system(*args)
     end
+    private_class_method :default_run, :escape
   end
 end
