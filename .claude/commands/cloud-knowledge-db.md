@@ -35,6 +35,12 @@ If `$ARGUMENTS` clearly names an operation (e.g. "daily", "rake 走らせて", "
 
 If `$ARGUMENTS` is empty or ambiguous, go to step 3.
 
+#### Daily fast path
+
+If the parsed intent is **daily** — matching `daily`, `日々の最新化`, `普段の取り込み`, or `毎日の取り込み` — **skip step 3 and step 4 entirely** and go directly to dispatch with `AUTOCONFIRM`. This is the zero-touch routine path: the user has already opted into routine execution by invoking the skill with this intent, and re-asking for confirmation just adds a wasted turn.
+
+For any other intent (per-phase / cleanup / triage / source-health / inspect / free-form), keep the existing step 3 / step 4 flow.
+
 ### 3. Present the semi-dynamic menu
 
 Show the user these choices. The labels are fixed; the bullet points under each are drawn from the current `rake -T` output so new tasks get surfaced automatically.
@@ -89,15 +95,29 @@ Wait for user approval. If the user adjusts, update and re-confirm.
 
 Based on the confirmed intent:
 
-| Menu choice | Dispatch target                                                                  |
-|-------------|----------------------------------------------------------------------------------|
-| 1. 取り込み   | `cloud-knowledge-db-run` subagent (PLAN first, then CONFIRMED on approval)       |
-| 2. 確認      | `cloud-knowledge-db-inspect` subagent (direct, no gate)                          |
+| Intent | Dispatch target |
+|---|---|
+| **daily fast path** | `cloud-knowledge-db-run` subagent with `AUTOCONFIRM TASK=daily APP_ENV=production` (single invocation, no PLAN/CONFIRMED) |
+| 1. 取り込み (per-phase) | `cloud-knowledge-db-run` subagent (PLAN first, then CONFIRMED on approval) |
+| 2. 確認      | `cloud-knowledge-db-inspect` subagent (direct, no gate) |
 | 3. 掃除      | `cloud-knowledge-db-run` subagent (TASK=db:delete_polluted or esa:delete, PLAN then CONFIRMED) |
-| 4. 分析      | `cloud-knowledge-db-pollution-triage` subagent (analysis only, no delete)        |
-| 5. feed健全性 | `cloud-knowledge-db-source-health` subagent (read-only)                          |
-| 6. rake -T  | Print the `rake -T` output you already fetched in step 1 — no subagent           |
+| 4. 分析      | `cloud-knowledge-db-pollution-triage` subagent (analysis only, no delete) |
+| 5. feed健全性 | `cloud-knowledge-db-source-health` subagent (read-only) |
+| 6. rake -T  | Print the `rake -T` output you already fetched in step 1 — no subagent |
 | 7. その他    | Treat as free-form; re-ask clarification, or route to whichever subagent fits once clarified |
+
+#### For the daily fast path
+
+Single invocation, no PLAN cycle. Prompt template:
+
+```
+AUTOCONFIRM TASK=daily APP_ENV=production
+[free-form context from the user, if any]
+```
+
+The subagent runs `bundle exec rake daily` directly. Whatever it returns (success summary, abort with esa conflicts, or failure with reason), relay verbatim to the user. If the result is `aborted`, follow up by offering options: inspect the conflicting esa post via `cloud-knowledge-db-inspect`, delete it via the `掃除` choice, or re-kick with `CKDB_FORCE=1` (which the user must confirm explicitly — do not auto-set it).
+
+Never combine `AUTOCONFIRM` with destructive `TASK=` values. The subagent itself rejects this combination, but the router should not even construct such a prompt.
 
 #### For `cloud-knowledge-db-run` dispatches (choices 1 and 3)
 
@@ -133,7 +153,7 @@ When the subagent returns, relay its output back to the user. Keep it concise �
 
 - **Never** execute `rake daily` / `rake fetch:*` / `rake import:*` / `rake esa:*` / `rake db:delete_*` / `rake esa:delete` yourself from the main session — always go through `cloud-knowledge-db-run`.
 - **Never** run ad-hoc write queries against `db/cloud_knowledge.db` yourself — delegate to subagents.
-- **Never** skip step 4 (confirm understanding). Even when `$ARGUMENTS` is explicit, echo back the interpretation before dispatching.
+- **Never** skip step 4 (confirm understanding) **except** for the daily fast path described above. For per-phase / cleanup / triage / source-health / free-form intents, always echo back the interpretation before dispatching.
 - **`rake -T` and `rake db:stats`** may be run directly in the main session (both read-only). Anything else: delegate.
 
 User arguments (optional): $ARGUMENTS
