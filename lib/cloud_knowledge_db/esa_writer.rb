@@ -2,6 +2,7 @@
 require 'net/http'
 require 'uri'
 require 'json'
+require_relative 'esa_token'
 
 module CloudKnowledgeDb
   class EsaWriter
@@ -42,9 +43,7 @@ module CloudKnowledgeDb
     private
 
     def fetch_token
-      token = `/usr/bin/security find-generic-password -s 'esa-mcp-token' -w 2>/dev/null`.strip
-      abort "ESA token not found in keychain (key: esa-mcp-token)" if token.empty?
-      token
+      EsaToken.fetch
     end
   end
 end
