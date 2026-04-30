@@ -4,6 +4,8 @@ require_relative 'lib/cloud_knowledge_db/config'
 require_relative 'lib/cloud_knowledge_db/trunk_bookmark'
 require_relative 'lib/cloud_knowledge_db/ollama_runner'
 require_relative 'lib/cloud_knowledge_db/db_syncer'
+require_relative 'lib/cloud_knowledge_db/esa_preflight'
+require_relative 'lib/cloud_knowledge_db/notifier'
 
 Rake::TestTask.new(:test) do |t|
   t.libs << 'test'
@@ -17,6 +19,34 @@ LAST_RUN_PATH = File.expand_path('db/last_run.yml', __dir__)
 TB            = CloudKnowledgeDb::TrunkBookmark
 
 def cfg; @cfg ||= CloudKnowledgeDb::Config.load; end
+
+def resolve_daily_window
+  require 'date'
+  before = ENV['BEFORE'] ? Date.parse(ENV['BEFORE']) : Date.today
+  data   = TB.load(LAST_RUN_PATH)
+  since  = if ENV['SINCE']
+             Date.parse(ENV['SINCE'])
+           else
+             floor = TB.recommended_since_floor(data, cfg['sources'].keys)
+             floor ? Date.parse(floor) : (before - 1)
+           end
+  [since, before]
+end
+
+desc 'preflight: list esa base_name conflicts (read-only)'
+task :plan do
+  require 'json'
+  since_d, before_d = resolve_daily_window
+  searcher  = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new
+  conflicts = CloudKnowledgeDb::EsaPreflight.conflicts(
+    cfg: cfg, since: since_d, before: before_d, searcher: searcher
+  )
+  puts JSON.pretty_generate(
+    since: since_d.to_s,
+    before: before_d.to_s,
+    conflicts: conflicts.map(&:to_h)
+  )
+end
 
 def write_md(dir, fname, frontmatter, body)
   require 'yaml'
