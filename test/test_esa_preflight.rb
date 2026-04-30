@@ -3,6 +3,16 @@ require_relative 'test_helper'
 require 'date'
 require 'cloud_knowledge_db/esa_preflight'
 
+# Simple mock response object for testing (replaces OpenStruct)
+class MockHttpResponse
+  attr_reader :code, :body
+
+  def initialize(code:, body:)
+    @code = code
+    @body = body
+  end
+end
+
 class EsaPreflightTest < Test::Unit::TestCase
   def base_cfg
     {
@@ -102,5 +112,43 @@ class EsaPreflightTest < Test::Unit::TestCase
     sources = result.map(&:source).sort
     assert_equal %w[aws_blog gitlab_blog], sources
     refute_includes sources, 'classmethod_blog'
+  end
+
+  def test_default_searcher_builds_query_url
+    captured = nil
+    fake_http = ->(uri, _req) { captured = uri.to_s; MockHttpResponse.new(code: '200', body: '{"posts":[]}') }
+    searcher = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new(
+      cfg: { 'esa' => { 'team' => 'bist' } },
+      token: 'tok',
+      http_runner: fake_http
+    )
+    searcher.search(team: 'bist', category: 'test/c/aws/2026/04/29', name: '2026-04-29-aws-cloud-changes')
+    assert_match %r{api\.esa\.io/v1/teams/bist/posts}, captured
+    assert_match %r{q=}, captured
+    assert_match %r{category%3A}, captured
+    assert_match %r{name%3A}, captured
+  end
+
+  def test_default_searcher_returns_posts_array_on_2xx
+    fake_http = ->(_uri, _req) { MockHttpResponse.new(code: '200', body: '{"posts":[{"number":7,"url":"u"}]}') }
+    searcher = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new(
+      cfg: { 'esa' => { 'team' => 'bist' } },
+      token: 'tok',
+      http_runner: fake_http
+    )
+    posts = searcher.search(team: 'bist', category: 'c', name: 'n')
+    assert_equal [{ 'number' => 7, 'url' => 'u' }], posts
+  end
+
+  def test_default_searcher_raises_on_4xx
+    fake_http = ->(_uri, _req) { MockHttpResponse.new(code: '403', body: 'forbidden') }
+    searcher = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new(
+      cfg: { 'esa' => { 'team' => 'bist' } },
+      token: 'tok',
+      http_runner: fake_http
+    )
+    assert_raise(RuntimeError) do
+      searcher.search(team: 'bist', category: 'c', name: 'n')
+    end
   end
 end
