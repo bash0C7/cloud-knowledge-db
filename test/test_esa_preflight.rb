@@ -151,4 +151,25 @@ class EsaPreflightTest < Test::Unit::TestCase
       searcher.search(team: 'bist', category: 'c', name: 'n')
     end
   end
+
+  def test_default_searcher_raises_clear_error_on_invalid_json
+    fake_http = ->(_uri, _req) { MockHttpResponse.new(code: '200', body: '<html>not json</html>') }
+    searcher = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new(
+      token: 'tok',
+      http_runner: fake_http
+    )
+    err = assert_raise(RuntimeError) do
+      searcher.search(team: 'bist', category: 'c', name: 'n')
+    end
+    assert_match(/invalid JSON/, err.message)
+  end
+
+  def test_default_searcher_returns_empty_when_posts_key_missing
+    fake_http = ->(_uri, _req) { MockHttpResponse.new(code: '200', body: '{}') }
+    searcher = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new(
+      token: 'tok',
+      http_runner: fake_http
+    )
+    assert_equal [], searcher.search(team: 'bist', category: 'c', name: 'n')
+  end
 end
