@@ -1,7 +1,7 @@
 # frozen_string_literal: true
+require 'json'
 require 'net/http'
 require 'uri'
-require 'json'
 require_relative 'esa_naming'
 require_relative 'esa_token'
 
@@ -47,23 +47,31 @@ module CloudKnowledgeDb
     end
 
     class DefaultSearcher
-      def initialize(cfg:, token: nil, http_runner: nil)
-        @cfg         = cfg
+      PER_PAGE = 100
+
+      def initialize(token: nil, http_runner: nil)
         @token       = token || EsaToken.fetch
         @http_runner = http_runner || method(:default_http_call)
       end
 
       def search(team:, category:, name:)
-        q = URI.encode_www_form_component("category:#{category} name:#{name}")
-        uri = URI("https://api.esa.io/v1/teams/#{team}/posts?q=#{q}&per_page=100")
+        q   = URI.encode_www_form_component("category:#{category} name:#{name}")
+        uri = URI("https://api.esa.io/v1/teams/#{team}/posts?q=#{q}&per_page=#{PER_PAGE}")
         req = Net::HTTP::Get.new(uri.request_uri)
         req['Authorization'] = "Bearer #{@token}"
         res = @http_runner.call(uri, req)
-        raise "esa API error (#{res.code}): #{res.body}" if res.code.to_i >= 400
-        JSON.parse(res.body)['posts'] || []
+        raise "esa API error (#{res.code}): #{res.body.to_s[0, 200]}" if res.code.to_i >= 400
+        parse_posts(res.body)
       end
 
       private
+
+      def parse_posts(body)
+        parsed = JSON.parse(body)
+        parsed.is_a?(Hash) ? (parsed['posts'] || []) : []
+      rescue JSON::ParserError => e
+        raise "esa API returned invalid JSON: #{e.message}"
+      end
 
       def default_http_call(uri, req)
         Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(req) }

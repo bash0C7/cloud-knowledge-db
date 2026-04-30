@@ -118,7 +118,6 @@ class EsaPreflightTest < Test::Unit::TestCase
     captured = nil
     fake_http = ->(uri, _req) { captured = uri.to_s; MockHttpResponse.new(code: '200', body: '{"posts":[]}') }
     searcher = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new(
-      cfg: { 'esa' => { 'team' => 'bist' } },
       token: 'tok',
       http_runner: fake_http
     )
@@ -132,7 +131,6 @@ class EsaPreflightTest < Test::Unit::TestCase
   def test_default_searcher_returns_posts_array_on_2xx
     fake_http = ->(_uri, _req) { MockHttpResponse.new(code: '200', body: '{"posts":[{"number":7,"url":"u"}]}') }
     searcher = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new(
-      cfg: { 'esa' => { 'team' => 'bist' } },
       token: 'tok',
       http_runner: fake_http
     )
@@ -143,7 +141,6 @@ class EsaPreflightTest < Test::Unit::TestCase
   def test_default_searcher_raises_on_4xx
     fake_http = ->(_uri, _req) { MockHttpResponse.new(code: '403', body: 'forbidden') }
     searcher = CloudKnowledgeDb::EsaPreflight::DefaultSearcher.new(
-      cfg: { 'esa' => { 'team' => 'bist' } },
       token: 'tok',
       http_runner: fake_http
     )
