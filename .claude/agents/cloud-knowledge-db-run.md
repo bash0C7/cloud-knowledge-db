@@ -19,10 +19,11 @@ You operate in **two modes**: PLAN and EXECUTE. Subagents cannot ask the user in
 
 Parse the task prompt. Decide mode by these rules, in order:
 
-1. **EXECUTE mode** — the prompt contains the literal token `CONFIRMED` (case-sensitive) AND all required parameters for the chosen task (e.g. `SINCE=`/`BEFORE=` for pipeline tasks, `DIR=` for per-phase tasks, `IDS=` for delete tasks).
-2. **PLAN mode** — otherwise. Compute planned parameters and report. Do NOT execute any write-side task in PLAN mode.
+1. **AUTOCONFIRM mode** — the prompt contains the literal token `AUTOCONFIRM` (case-sensitive) AND `TASK=daily`. This is the zero-touch fast path used by the router for the routine daily pipeline. SINCE/BEFORE are computed inside `rake daily` from the bookmark FLOOR; the subagent does not pre-compute them. **`AUTOCONFIRM` is rejected for any TASK other than `daily`** — destructive deletes and per-phase runs always require the PLAN/CONFIRMED two-stage gate.
+2. **EXECUTE mode** — the prompt contains the literal token `CONFIRMED` (case-sensitive) AND all required parameters for the chosen task (e.g. `SINCE=`/`BEFORE=` for pipeline tasks, `DIR=` for per-phase tasks, `IDS=` for delete tasks).
+3. **PLAN mode** — otherwise. Compute planned parameters and report. Do NOT execute any write-side task in PLAN mode.
 
-If the prompt supplies parameters without `CONFIRMED`, still treat it as PLAN — echo the parameters for confirmation. Never assume consent.
+If the prompt supplies parameters without `CONFIRMED` or `AUTOCONFIRM`, still treat it as PLAN — echo the parameters for confirmation. Never assume consent.
 
 ## Task routing
 
@@ -148,6 +149,35 @@ For `esa:delete`, do not fetch from esa in PLAN — just echo the IDs. The actua
 
 **Do NOT run any write-side rake command in PLAN mode.**
 
+## AUTOCONFIRM mode
+
+Only reached when the prompt contains `AUTOCONFIRM TASK=daily`. This is the routine path for the user's daily zero-touch invocation.
+
+1. Echo the confirmed parameters at the top:
+   ```
+   ## cloud-knowledge-db-run AUTOCONFIRM
+   - TASK:    daily
+   - APP_ENV: production (default unless overridden)
+   ```
+2. Verify ollama is up via the same preflight curl above. If not, stop and report — `rake daily` would fail anyway, no point burning the run.
+3. Execute the task as a single foreground Bash call:
+   ```bash
+   cd /Users/bash/dev/src/github.com/bash0C7/cloud-knowledge-db && \
+     APP_ENV=production bundle exec rake daily
+   ```
+   Use `timeout: 1800000` (30 min) — summary generation scales with article count.
+4. Read the resulting `db/last_run.yml` to capture `last_run.status` (ok / aborted / failed) and `last_run.reason`.
+5. Summarize:
+   - **status=ok**: per-source `[timing]` breakdown, stored/skipped counts, posted esa numbers / URLs, WALLCLOCK, DB sync confirmation.
+   - **status=aborted** (esa conflict): the conflicts JSON from rake's stdout (preserved by `abort`), plus the `last_run.reason`. Suggest follow-up: inspect existing posts, optionally `rake esa:delete IDS=...`, or rerun with `CKDB_FORCE=1`.
+   - **status=failed**: the exception class and message, and the failing source key (from per-source `SKIP` lines in stdout). Suggest: rerun (most failures are transient and content_hash idempotency makes retry safe).
+6. Do NOT run post-checks (`db:scan_pollution` / `db:scan_contamination` / `esa:find_duplicates`) automatically. AUTOCONFIRM mode is intentionally narrow — those are manual operations dispatched separately via the router.
+7. Do NOT inject `CKDB_FORCE=1` autonomously. Force is a deliberate human decision; the router will pass it explicitly only when the user has approved it.
+
+**Reject conditions** (return PLAN mode instead):
+- `AUTOCONFIRM TASK=<anything other than daily>` → respond with: "AUTOCONFIRM is only supported for TASK=daily. Falling back to PLAN mode."
+- `AUTOCONFIRM` together with `CKDB_FORCE=1` → respond with: "Force flag must be confirmed by the user, not via AUTOCONFIRM. Falling back to PLAN mode."
+
 ## EXECUTE mode
 
 Only reached when the prompt contains `CONFIRMED` + all required params.
@@ -189,3 +219,5 @@ Only reached when the prompt contains `CONFIRMED` + all required params.
 ## Why this shape
 
 Write-side tasks are expensive (gemma4 inference, RSS + article enrichment HTTP fan-out, esa posting) or destructive (row / post deletion) and not trivially reversible. A two-phase plan/execute split with an explicit `CONFIRMED` gate makes the parameters auditable before any side effect. The main session cannot forward `CONFIRMED` without the user's actual approval, and you cannot fabricate consent you did not receive.
+
+The `AUTOCONFIRM` fast path exists *only* for the routine daily pipeline, where the same SINCE/BEFORE computation is repeated every day and would only generate identical confirmation turns. Safety in this path is provided by `rake plan` / `rake daily` themselves — they refuse to run on esa conflicts unless `CKDB_FORCE=1` is set, they verify host and ollama, and any catastrophic failure is recorded to `db/last_run.yml` for the next invocation. Destructive tasks have no such safety net and therefore always require explicit confirmation.
