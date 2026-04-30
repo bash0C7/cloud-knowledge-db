@@ -44,4 +44,18 @@ class NotifierTest < Test::Unit::TestCase
     # if this returned, the rescue worked
     assert_true true
   end
+
+  def test_notify_escapes_double_quote_in_reason
+    CloudKnowledgeDb::Notifier.notify(status: 'failed', reason: 'got "boom"', runner: @runner)
+    cmd = @recorded.first
+    assert_match(/got \\"boom\\"/, cmd[2])
+    refute_match(/got "boom"/, cmd[2])
+  end
+
+  def test_notify_escapes_backslash_in_reason
+    CloudKnowledgeDb::Notifier.notify(status: 'failed', reason: 'path C:\\foo', runner: @runner)
+    cmd = @recorded.first
+    # Ruby string: path C:\\foo  → escape doubles backslash → path C:\\\\foo in script
+    assert_match(/C:\\\\foo/, cmd[2])
+  end
 end
