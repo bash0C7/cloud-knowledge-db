@@ -17,7 +17,20 @@
       "Bash(APP_ENV=test bundle exec rake test TEST=test/test_translation_registry.rb)",
       "Bash(git push *)",
       "Bash(gh repo create *)",
-      "Bash(APP_ENV=production bundle exec *)"
+      "Bash(APP_ENV=production bundle exec *)",
+      "mcp__esa__esa_get_post",
+      "mcp__esa__esa_get_teams",
+      "mcp__esa__esa_search_posts",
+      "Read(//Users/bash/dev/src/github.com/bash0C7/cloud-blog-collector/**)",
+      "Read(//Users/bash/dev/src/github.com/bash0C7/cloud-blog-collector/test/**)",
+      "mcp__esa__esa_update_post",
+      "mcp__esa__esa_archive_post",
+      "Bash(claude --model haiku --tools \"\" -p -)",
+      "Skill(commit-commands:commit)",
+      "WebSearch",
+      "mcp__chiebukuro-mcp__chiebukuro_query_cloud_knowledge",
+      "Bash(APP_ENV=production SINCE=* BEFORE=* bundle exec rake daily *)",
+      "Bash(APP_ENV=test bundle exec rake *)"
     ]
   }
 }
