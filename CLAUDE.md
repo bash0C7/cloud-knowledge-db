@@ -30,9 +30,11 @@ Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace / GitL
 | `lib/cloud_knowledge_db/config.rb` | APP_ENV config load; `Config.ensure_write_host!` gates writes by LocalHostName |
 | `lib/cloud_knowledge_db/daily_summarizer.rb` | esa post body generation (takes English articles, emits Japanese summary) |
 | `lib/cloud_knowledge_db/db_syncer.rb` | `DbSyncer.sync(source:, destination:)` — checkpoint WAL, drop stale wal/shm at destination, atomic rename copy for `db_copy_to` |
+| `lib/cloud_knowledge_db/esa_naming.rb` | `EsaNaming` module — esa post の `category` / `name` / base path 算出（source × date → 決定論的命名） |
 | `lib/cloud_knowledge_db/esa_preflight.rb` | `Conflict` struct + `EsaPreflight.conflicts(cfg:, since:, before:, searcher:)` + `DefaultSearcher` (live esa API) / `StubSearcher` (test 用) |
 | `lib/cloud_knowledge_db/esa_token.rb` | keychain (`security`) から `esa-mcp-token` を取得する shared module。`EsaWriter` / `EsaPreflight::DefaultSearcher` から呼ばれる |
 | `lib/cloud_knowledge_db/esa_writer.rb` | esa API posting |
+| `lib/cloud_knowledge_db/importer.rb` | MD ファイル → SQLite 取り込み (`content_hash` idempotent)、mojibake / html-heavy / language mismatch validation |
 | `lib/cloud_knowledge_db/notifier.rb` | `Notifier.notify(status: ok\|aborted\|failed, since:, before:, reason:)` で macOS osascript display notification |
 | `lib/cloud_knowledge_db/ollama_runner.rb` | Local ollama HTTP client (`/api/generate`, `stream=false`, `think=false`) + `ensure_available!` |
 | `lib/cloud_knowledge_db/trunk_bookmark.rb` | Two-stage bookmark management (load/save/mark_started/mark_completed/status/recommended_since_floor) |
