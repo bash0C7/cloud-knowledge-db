@@ -26,13 +26,16 @@ Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace / GitL
 |---|---|
 | `lib/cloud_knowledge_db/runner.rb` | Factory `Runner.build(provider:, model:)` returning `ClaudeRunner` or `OllamaRunner` |
 | `lib/cloud_knowledge_db/claude_runner.rb` | `claude -p` CLI wrapper (chdir /tmp to block CLAUDE.md contamination) |
-| `lib/cloud_knowledge_db/ollama_runner.rb` | Local ollama HTTP client (`/api/generate`, `stream=false`, `think=false`) + `ensure_available!` |
-| `lib/cloud_knowledge_db/daily_summarizer.rb` | esa post body generation (takes English articles, emits Japanese summary) |
 | `lib/cloud_knowledge_db/content_classifier.rb` | classmethod article tag classification (Claude haiku) |
-| `lib/cloud_knowledge_db/esa_writer.rb` | esa API posting |
-| `lib/cloud_knowledge_db/trunk_bookmark.rb` | Two-stage bookmark management (load/save/mark_started/mark_completed/status/recommended_since_floor) |
 | `lib/cloud_knowledge_db/config.rb` | APP_ENV config load; `Config.ensure_write_host!` gates writes by LocalHostName |
+| `lib/cloud_knowledge_db/daily_summarizer.rb` | esa post body generation (takes English articles, emits Japanese summary) |
 | `lib/cloud_knowledge_db/db_syncer.rb` | `DbSyncer.sync(source:, destination:)` — checkpoint WAL, drop stale wal/shm at destination, atomic rename copy for `db_copy_to` |
+| `lib/cloud_knowledge_db/esa_preflight.rb` | `Conflict` struct + `EsaPreflight.conflicts(cfg:, since:, before:, searcher:)` + `DefaultSearcher` (live esa API) / `StubSearcher` (test 用) |
+| `lib/cloud_knowledge_db/esa_token.rb` | keychain (`security`) から `esa-mcp-token` を取得する shared module。`EsaWriter` / `EsaPreflight::DefaultSearcher` から呼ばれる |
+| `lib/cloud_knowledge_db/esa_writer.rb` | esa API posting |
+| `lib/cloud_knowledge_db/notifier.rb` | `Notifier.notify(status: ok\|aborted\|failed, since:, before:, reason:)` で macOS osascript display notification |
+| `lib/cloud_knowledge_db/ollama_runner.rb` | Local ollama HTTP client (`/api/generate`, `stream=false`, `think=false`) + `ensure_available!` |
+| `lib/cloud_knowledge_db/trunk_bookmark.rb` | Two-stage bookmark management (load/save/mark_started/mark_completed/status/recommended_since_floor) |
 
 ---
 
@@ -131,8 +134,13 @@ Source threads run in parallel inside `rake daily` with per-phase timing logs. S
 ## Rake Tasks
 
 ```bash
-# Daily (auto SINCE/BEFORE from bookmark)
+# Preflight (read-only): esa base_name 衝突 list を JSON で出す
+APP_ENV=production bundle exec rake plan
+APP_ENV=production bundle exec rake plan SINCE=2026-04-29 BEFORE=2026-04-30
+
+# Daily (auto SINCE/BEFORE from bookmark, esa conflict preflight + last_run.yml status recording)
 APP_ENV=production bundle exec rake daily
+APP_ENV=production CKDB_FORCE=1 bundle exec rake daily   # esa conflict gate を bypass
 
 # Phase-by-phase per source
 APP_ENV=test SINCE=2026-04-15 BEFORE=2026-04-16 bundle exec rake fetch:aws
@@ -220,6 +228,18 @@ aws_blog:
 - FLOOR = `min(last_completed_before)` across all sources — safe restart point
 - `content_hash` idempotency means safe to re-run from FLOOR
 
+さらに rake daily 完了時に global な `last_run` セクションが書かれる:
+
+```yaml
+last_run:
+  status: ok                          # ok | aborted | failed
+  finished_at: 2026-04-30T09:08:30+09:00
+  reason: nil                         # aborted/failed 時に短文（例: "esa conflict: 2件"）
+```
+
+- `status: aborted` は esa preflight で `EsaPreflight.conflicts` が衝突を返した時。`CKDB_FORCE=1` で bypass 可。
+- `status: failed` は per-source rescue で吸収できないトップレベル例外（DB lock / DbSyncer 失敗 等）。次回 kick で content_hash idempotent に自動再試行される想定。
+
 ---
 
 ## Host Guard
@@ -231,6 +251,8 @@ allowed_write_host: MacBook-Air-M3
 ```
 
 Override with `ALLOW_WRITE=1` (escape hatch for exceptional cases).
+
+**`CKDB_FORCE=1`** は別の escape hatch で、`rake daily` の **esa preflight gate** を bypass する用途。host guard とは独立。esa 衝突があると分かっていて意図的に上書き / suffix 投稿させたい時にのみ使う。
 
 ---
 
