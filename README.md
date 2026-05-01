@@ -108,13 +108,31 @@ This is a unified menu router (see `.claude/commands/cloud-knowledge-db.md`). It
 
 Typical daily flow: dispatch `/cloud-knowledge-db daily` → subagent returns a PLAN with FLOOR/WIP/SINCE/BEFORE → you approve → subagent runs `rake daily` then post-checks (`db:stats`, `db:scan_pollution`, `db:scan_contamination`, `esa:find_duplicates`).
 
+### Zero-touch fast path
+
+For ordinary daily runs, the router (`/cloud-knowledge-db`) recognises phrases like `daily` / `日々の最新化` / `普段の取り込み` and delegates to `cloud-knowledge-db-run` in **AUTOCONFIRM** mode — no PLAN/CONFIRMED round-trip. The subagent runs `rake daily`, which itself performs:
+
+1. **esa preflight** (`EsaPreflight.conflicts`) — aborts before any write if a same `category × name` post already exists at esa, unless `CKDB_FORCE=1` is set.
+2. **Per-source parallel pipeline** — fetch / import / esa, content_hash idempotent.
+3. **`db/last_run.yml` status record** — `last_run: { status: ok | aborted | failed, finished_at:, reason: }`.
+4. **macOS osascript notification** — `✓ daily ok` / `⚠ daily aborted` / `✗ daily failed`.
+
+Failure is recoverable by re-kicking; content_hash idempotency prevents double-writes and the preflight gate prevents double esa posts.
+
 ---
 
 ## Manual Rake Commands
 
 ```bash
+# Preflight (read-only): list esa base_name conflicts as JSON, no writes
+APP_ENV=production bundle exec rake plan
+APP_ENV=production bundle exec rake plan SINCE=2026-04-29 BEFORE=2026-04-30
+
 # Full daily pipeline (auto SINCE/BEFORE from bookmark FLOOR)
 APP_ENV=production bundle exec rake daily
+
+# Bypass the esa conflict gate (escape hatch — use only when intentional)
+APP_ENV=production CKDB_FORCE=1 bundle exec rake daily
 
 # Explicit window (ignores bookmark)
 APP_ENV=production SINCE=2026-04-16 BEFORE=2026-04-18 bundle exec rake daily
@@ -135,6 +153,7 @@ Source keys: `aws_blog`, `gcp_blog`, `gws_blog`, `gitlab_blog`, `classmethod_blo
 
 | Task | Purpose |
 |---|---|
+| `rake plan` | Read-only esa preflight — emit conflict list as JSON for the daily window |
 | `rake db:stats` | Row counts per source and vector total |
 | `rake db:scan_pollution` | Detect empty-meta markers, near-duplicate candidates |
 | `rake db:scan_contamination` | Detect `~/CLAUDE.md` gyaru-persona leakage in stored content |
