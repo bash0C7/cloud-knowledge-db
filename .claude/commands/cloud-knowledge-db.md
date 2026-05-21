@@ -85,7 +85,7 @@ Ask the user to pick (number or natural language).
 Whether intent came from `$ARGUMENTS` (step 2) or the menu (step 3), echo back your interpretation in one or two sentences:
 
 ```
-→ 「<意図の言い換え>」で進めるピョン、確認？
+→ 「<意図の言い換え>」で進める。確認してね。
    （例: rake daily 相当の全パイプラインを昨日分で実行、SINCE/BEFORE は subagent が bookmark から計算）
 ```
 
