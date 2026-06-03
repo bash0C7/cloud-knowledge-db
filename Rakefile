@@ -233,25 +233,25 @@ namespace :esa do
     require 'net/http'
     require 'uri'
     require 'json'
+    require_relative 'lib/cloud_knowledge_db/esa_duplicates'
 
     team = cfg['esa']['team']
     date = ENV['DATE']
     token = `/usr/bin/security find-generic-password -s 'esa-mcp-token' -w 2>/dev/null`.strip
     abort 'esa token missing' if token.empty?
 
-    q = ["category:cloud-trunk-changes"]
-    q << "created:#{date}" if date
-    uri = URI("https://api.esa.io/v1/teams/#{team}/posts?q=#{URI.encode_www_form_component(q.join(' '))}&per_page=100")
+    # content date と esa created_at がズレる（後日再投稿）ケースを取りこぼさないため、
+    # category 全件を取得し date 絞り込みは name 先頭の content date で行う（created: は使わない）。
+    uri = URI("https://api.esa.io/v1/teams/#{team}/posts?q=#{URI.encode_www_form_component('category:cloud-trunk-changes')}&per_page=100")
     req = Net::HTTP::Get.new(uri.request_uri)
     req['Authorization'] = "Bearer #{token}"
     res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(req) }
     data = JSON.parse(res.body)
 
-    by_base = (data['posts'] || []).group_by { |p| p['name'].sub(/ \(\d+\)$/, '') }
-    by_base.each do |name, posts|
-      next unless posts.length > 1
-      puts "DUP base=#{name} count=#{posts.length}"
-      posts.each { |p| puts "  ##{p['number']} #{p['name']} #{p['full_name']}" }
+    groups = CloudKnowledgeDb::EsaDuplicates.duplicate_groups(posts: data['posts'], date: date)
+    groups.each do |g|
+      puts "DUP base=#{g[:base_name]} count=#{g[:posts].length}"
+      g[:posts].each { |p| puts "  ##{p['number']} #{p['name']} #{p['full_name']}" }
     end
   end
 
