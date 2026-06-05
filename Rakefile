@@ -163,8 +163,19 @@ def do_esa(key, dir:)
     end
     next if articles.empty?
 
+    # summarize and post are split into separate rescues so the failure label
+    # names the layer that actually broke. summarize runs on the LLM (ollama
+    # gemma4); a hung ollama backend surfaces as Net::ReadTimeout there, which
+    # must NOT be reported as an esa failure (that sends debugging to the wrong
+    # layer — esa connectivity can be perfectly healthy while ollama is wedged).
     begin
       body_md = summarizer.summarize(provider_short: src_cfg['short_name'], date: date, articles: articles)
+    rescue => e
+      warn "esa summarize failed for #{key}/#{date}: #{e.class}: #{e.message}"
+      raise
+    end
+
+    begin
       writer  = CloudKnowledgeDb::EsaWriter.new(
         team:     cfg['esa']['team'],
         category: CloudKnowledgeDb::EsaNaming.build_category(prefix: esa_cfg['category'], date: date),
