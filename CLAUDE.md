@@ -210,6 +210,10 @@ models:
 
 To run the summary on a different ollama model, only this file changes; no code edit is needed.
 
+### ollama runtime
+
+The local ollama server is the official **Ollama.app** (Homebrew cask `ollama-app`), running as a menu-bar agent on the write host. It bundles the `llama-server` backend, which the Homebrew formula `ollama` does not ship — so the formula must not be used for this project. `rake daily` requires Ollama.app to be running (verify with a `POST /api/generate` returning HTTP 200). A wedged or backend-less ollama makes `summarize` hang until `OllamaRunner::READ_TIMEOUT_SEC` (600s); that failure is labelled `esa summarize failed` (not `esa post failed`) so debugging targets the LLM layer.
+
 ---
 
 ## Two-Stage Bookmark
