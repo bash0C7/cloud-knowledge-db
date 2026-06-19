@@ -403,6 +403,37 @@ namespace :db do
     db.commit
     puts "Deleted #{ids.length} ids"
   end
+
+  desc 'Repair gitlab/blogs/all rows carrying the GitLab nav-chrome prefix (rewrites content/hash/FTS/embedding; re-runnable)'
+  task :clean_gitlab_boilerplate do
+    CloudKnowledgeDb::Config.ensure_write_host!
+    require 'bundler/setup'
+    require 'sqlite3'
+    require 'sqlite_vec'
+    require 'ruby_knowledge_store'
+    require_relative 'lib/cloud_knowledge_db/gitlab_boilerplate_cleaner'
+
+    db_path = File.expand_path(cfg['db_path'], __dir__)
+    abort "DB not found: #{db_path}" unless File.exist?(db_path)
+
+    db = SQLite3::Database.new(db_path)
+    db.enable_load_extension(true)
+    SqliteVec.load(db)
+    db.enable_load_extension(false)
+    db.busy_timeout = 5000
+
+    embedder = RubyKnowledgeStore::Embedder.new
+    cleaner  = CloudKnowledgeDb::GitlabBoilerplateCleaner.new(db: db, embedder: embedder)
+    changed  = cleaner.clean(source: 'gitlab/blogs/all')
+    db.close
+    puts "cleaned #{changed.length} gitlab rows: #{changed.join(',')}"
+
+    if (copy_to = cfg['db_copy_to'])
+      dst = File.expand_path(copy_to)
+      CloudKnowledgeDb::DbSyncer.sync(source: db_path, destination: dst)
+      puts "[sync] db copied to #{dst}"
+    end
+  end
 end
 
 namespace :smoke do
