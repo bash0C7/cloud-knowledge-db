@@ -159,16 +159,9 @@ Write tasks (`rake daily`, `fetch:*`, `import:*`, `esa:*`, `db:delete_polluted`,
 
 ## DB Sync (production)
 
-On `rake daily` end, production copies the local DB to an iCloud Drive path so other Macs can consume read-only via `chiebukuro-mcp`. Destination is `db_copy_to` in `config/environments/production.yml`. Rationale: avoid iCloud uploading mid-stream WAL during parallel writes.
+On `rake daily` end, production copies the local DB to an iCloud Drive path (`db_copy_to` in `config/environments/production.yml`) so other Macs can consume it read-only via `chiebukuro-mcp`. The single-file copy approach avoids iCloud uploading mid-stream WAL during parallel writes.
 
-Flow:
-1. Local `db/cloud_knowledge.db` is written by 5 parallel source threads.
-2. Each thread's `do_import` ends with `ensure { store.close }` → WAL flushed back to main DB.
-3. `CloudKnowledgeDb::DbSyncer.sync(source:, destination:)`:
-   - `PRAGMA wal_checkpoint(TRUNCATE)` merges and empties source WAL.
-   - Deletes stale `.db-wal` / `.db-shm` at destination.
-   - `FileUtils.mkdir_p` + `FileUtils.cp` copies the single `.db` file.
-4. iCloud propagates to other Macs; the write host stays `MacBook-Air-M3` via host guard.
+The local `db/cloud_knowledge.db` is written by 5 parallel source threads; each thread's `do_import` closes its `Store` in `ensure` to flush WAL back to the main DB. `CloudKnowledgeDb::DbSyncer.sync(source:, destination:)` then runs `PRAGMA wal_checkpoint(TRUNCATE)` to merge and empty the source WAL, deletes stale `.db-wal` / `.db-shm` at the destination, and `FileUtils.cp`s the single `.db` file. iCloud propagates it to other Macs. The write host stays `MacBook-Air-M3` via host guard.
 
 Files: `lib/cloud_knowledge_db/db_syncer.rb`, `Rakefile` `:daily` tail (invoked only when `cfg['db_copy_to']` is set), `test/test_db_syncer.rb`.
 

@@ -60,7 +60,7 @@ The current default has translation/summarization on local ollama and only `clas
 |---|---|---|---|---|
 | development (default) | `db/cloud_knowledge_development.db` | `bist` | true | `development/cloud-trunk-changes/` |
 | test | `db/cloud_knowledge_test.db` | `bist` | true | `test/cloud-trunk-changes/` |
-| production | `db/cloud_knowledge.db` → iCloud にミラー (`db_copy_to`) | `bash-trunk-changes` | false | `production/cloud-trunk-changes/` |
+| production | `db/cloud_knowledge.db` (mirrored to iCloud via `db_copy_to`) | `bash-trunk-changes` | false | `production/cloud-trunk-changes/` |
 
 The production DB write host is gated via `scutil --get LocalHostName`; only `allowed_write_host` in `config/environments/production.yml` may write.
 
@@ -106,18 +106,11 @@ This is a unified menu router (see `.claude/commands/cloud-knowledge-db.md`). It
 - `cloud-knowledge-db-pollution-triage` — analyst over scan output, recommends DELETE/KEEP/INSPECT-MORE per ID (never deletes).
 - `cloud-knowledge-db-source-health` — weekly feed-liveness check, recommends adapter upgrades when feeds break.
 
-Typical daily flow: dispatch `/cloud-knowledge-db daily` → subagent returns a PLAN with FLOOR/WIP/SINCE/BEFORE → you approve → subagent runs `rake daily` then post-checks (`db:stats`, `db:scan_pollution`, `db:scan_contamination`, `esa:find_duplicates`).
-
 ### Zero-touch fast path
 
-For ordinary daily runs, the router (`/cloud-knowledge-db`) recognises phrases like `daily` / `日々の最新化` / `普段の取り込み` and delegates to `cloud-knowledge-db-run` in **AUTOCONFIRM** mode — no PLAN/CONFIRMED round-trip. The subagent runs `rake daily`, which itself performs:
+For ordinary daily runs the router recognises phrases like `daily` / `日々の最新化` / `普段の取り込み` and delegates to `cloud-knowledge-db-run` in **AUTOCONFIRM** mode — no PLAN/CONFIRMED round-trip.
 
-1. **esa preflight** (`EsaPreflight.conflicts`) — aborts before any write if a same `category × name` post already exists at esa, unless `CKDB_FORCE=1` is set.
-2. **Per-source parallel pipeline** — fetch / import / esa, content_hash idempotent.
-3. **`db/last_run.yml` status record** — `last_run: { status: ok | aborted | failed, finished_at:, reason: }`.
-4. **macOS osascript notification** — `✓ daily ok` / `⚠ daily aborted` / `✗ daily failed`.
-
-Failure is recoverable by re-kicking; content_hash idempotency prevents double-writes and the preflight gate prevents double esa posts.
+`rake daily` runs an esa preflight (`EsaPreflight.conflicts`) that aborts before any write if a same `category × name` post already exists at esa (bypass with `CKDB_FORCE=1`), executes the per-source parallel fetch / import / esa pipeline with `content_hash` idempotency, records a `last_run: { status: ok | aborted | failed, finished_at:, reason: }` block in `db/last_run.yml`, and posts a macOS notification (`✓ daily ok` / `⚠ daily aborted` / `✗ daily failed`). Failure is recoverable by re-kicking: `content_hash` idempotency prevents double-writes and the preflight gate prevents double esa posts.
 
 ---
 
@@ -204,5 +197,4 @@ Official blog rows are stored in English only. The ruri multilingual embedder le
 
 ## Reference
 
-- Design spec: [`docs/superpowers/specs/2026-04-16-cloud-knowledge-db-design.md`](docs/superpowers/specs/2026-04-16-cloud-knowledge-db-design.md)
 - chiebukuro-mcp meta patch (recipes, clarification fields, column hints): `dotfiles/chiebukuro-mcp/chiebukuro-mcp/scripts/meta_patches/cloud_knowledge.yml`
