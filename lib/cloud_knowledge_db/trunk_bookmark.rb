@@ -9,7 +9,7 @@ module CloudKnowledgeDb
 
     def load(path)
       return {} unless File.exist?(path)
-      YAML.load_file(path) || {}
+      YAML.load_file(path, aliases: true) || {}
     end
 
     def save(path, data)
