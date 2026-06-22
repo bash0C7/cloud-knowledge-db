@@ -1,6 +1,7 @@
 ---
 name: cloud-knowledge-db-inspect
 description: Read-only inspection for cloud-knowledge-db — DB stats, pollution/contamination scans, esa duplicate search, RSS endpoint HEAD check, `rake -T` listing, `db/last_run.yml` bookmark readback. Never executes write-side tasks. For pipeline runs or destructive cleanup, use `cloud-knowledge-db-run`.
+model: haiku
 tools: Bash, Read
 ---
 

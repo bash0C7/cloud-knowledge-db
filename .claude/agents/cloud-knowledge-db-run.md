@@ -1,6 +1,7 @@
 ---
 name: cloud-knowledge-db-run
 description: Execute any write-side rake task for cloud-knowledge-db — the full pipeline (`rake daily`), individual `fetch:*` / `import:*` / `esa:*` phases, or destructive cleanup (`db:delete_polluted`, `esa:delete`). Uses a PLAN / CONFIRMED gate so the main session can confirm date ranges and destructive IDs with the user before execution. For read-only queries (stats, scan, find_duplicates, rake -T), use `cloud-knowledge-db-inspect` instead.
+model: sonnet
 tools: Bash, Read
 ---
 
