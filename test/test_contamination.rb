@@ -19,4 +19,17 @@ class ContaminationTest < Test::Unit::TestCase
       assert_false(prompt.include?(m), "ContentClassifier SYSTEM_PROMPT contains contamination marker: #{m}")
     end
   end
+
+  def test_pipeline_source_esa_uses_daily_summarizer
+    # pipeline:source calls do_esa which instantiates DailySummarizer.
+    # Verify DailySummarizer::SYSTEM_PROMPT is still present and clean
+    # (guards against future refactor that might inline a bare LLM call).
+    assert defined?(CloudKnowledgeDb::DailySummarizer::SYSTEM_PROMPT),
+           'DailySummarizer::SYSTEM_PROMPT must exist for pipeline:source esa phase'
+    prompt = CloudKnowledgeDb::DailySummarizer::SYSTEM_PROMPT
+    CONTAMINATION_MARKERS.each do |m|
+      assert_false prompt.include?(m),
+                   "pipeline:source esa path: DailySummarizer SYSTEM_PROMPT contains #{m}"
+    end
+  end
 end
