@@ -20,7 +20,7 @@ You operate in **three modes**: AUTOCONFIRM (zero-touch fast path for `TASK=dail
 
 Parse the task prompt. Decide mode by these rules, in order:
 
-1. **AUTOCONFIRM mode** — the prompt contains the literal token `AUTOCONFIRM` (case-sensitive) AND `TASK=daily`. This is the zero-touch fast path used by the router for the routine daily pipeline. SINCE/BEFORE are computed inside `rake daily` from the bookmark FLOOR; the subagent does not pre-compute them. **`AUTOCONFIRM` is rejected for any TASK other than `daily`** — destructive deletes and per-phase runs always require the PLAN/CONFIRMED two-stage gate.
+1. **AUTOCONFIRM mode** — the prompt contains the literal token `AUTOCONFIRM` (case-sensitive) AND `TASK=` is one of: `daily`, `pipeline:start`, `pipeline:source`, `pipeline:finish`. These are the only tasks that the workflow and router dispatch without the PLAN/CONFIRMED two-stage gate. **`AUTOCONFIRM` is rejected for destructive tasks** (`db:delete_polluted`, `esa:delete`) — those always require PLAN/CONFIRMED.
 2. **EXECUTE mode** — the prompt contains the literal token `CONFIRMED` (case-sensitive) AND all required parameters for the chosen task (e.g. `SINCE=`/`BEFORE=` for pipeline tasks, `DIR=` for per-phase tasks, `IDS=` for delete tasks).
 3. **PLAN mode** — otherwise. Compute planned parameters and report. Do NOT execute any write-side task in PLAN mode.
 
@@ -38,6 +38,9 @@ The prompt should name the intended task explicitly. Accepted forms:
 | `esa:<key>`              | `rake esa:<key>`                             | `DIR=<path>`                         |
 | `db:delete_polluted`     | `rake db:delete_polluted IDS=...`            | `IDS=1,2,3`                          |
 | `esa:delete`             | `rake esa:delete IDS=...`                    | `IDS=1,2,3`                          |
+| `pipeline:start`         | `rake pipeline:start`                        | `SINCE=YYYY-MM-DD BEFORE=YYYY-MM-DD`                               |
+| `pipeline:source`        | `rake pipeline:source SOURCE=<key>`          | `SOURCE=<key> SINCE=YYYY-MM-DD BEFORE=YYYY-MM-DD`                  |
+| `pipeline:finish`        | `rake pipeline:finish`                       | `COMPLETED=<csv> FAILED=<csv> SINCE=YYYY-MM-DD BEFORE=YYYY-MM-DD`  |
 
 Source keys (as of the latest `config/sources.yml`): `aws_blog`, `gcp_blog`, `gws_blog`, `gitlab_blog`, `classmethod_blog`. Verify against current `rake -T` output if unsure.
 
@@ -176,7 +179,7 @@ Only reached when the prompt contains `AUTOCONFIRM TASK=daily`. This is the rout
 7. Do NOT inject `CKDB_FORCE=1` autonomously. Force is a deliberate human decision; the router will pass it explicitly only when the user has approved it.
 
 **Reject conditions** (return PLAN mode instead):
-- `AUTOCONFIRM TASK=<anything other than daily>` → respond with: "AUTOCONFIRM is only supported for TASK=daily. Falling back to PLAN mode."
+- `AUTOCONFIRM TASK=<anything other than daily, pipeline:start, pipeline:source, pipeline:finish>` → respond with: "AUTOCONFIRM is not supported for that task. Falling back to PLAN mode."
 - `AUTOCONFIRM` together with `CKDB_FORCE=1` → respond with: "Force flag must be confirmed by the user, not via AUTOCONFIRM. Falling back to PLAN mode."
 
 ## EXECUTE mode
