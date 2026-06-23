@@ -97,7 +97,7 @@ Based on the confirmed intent:
 
 | Intent | Dispatch target |
 |---|---|
-| **daily fast path** | `cloud-knowledge-db-run` subagent with `AUTOCONFIRM TASK=daily APP_ENV=production` (single invocation, no PLAN/CONFIRMED) |
+| **daily fast path** | Run `/daily-pipeline` workflow (saves intermediate results in script variables; 5 parallel source agents) |
 | 1. 取り込み (per-phase) | `cloud-knowledge-db-run` subagent (PLAN first, then CONFIRMED on approval) |
 | 2. 確認      | `cloud-knowledge-db-inspect` subagent (direct, no gate) |
 | 3. 掃除      | `cloud-knowledge-db-run` subagent (TASK=db:delete_polluted or esa:delete, PLAN then CONFIRMED) |
@@ -108,16 +108,17 @@ Based on the confirmed intent:
 
 #### For the daily fast path
 
-Single invocation, no PLAN cycle. Prompt template:
+Trigger the `/daily-pipeline` saved workflow instead of dispatching a single run agent. The workflow handles bookmark reading, preflight, 5-way parallel source execution, and finish internally — intermediate results stay in workflow script variables, not in this session's context.
 
-```
-AUTOCONFIRM TASK=daily APP_ENV=production
-[free-form context from the user, if any]
-```
+Say: "Run /daily-pipeline" — the runtime picks up `.claude/workflows/daily-pipeline.js`.
 
-The subagent runs `bundle exec rake daily` directly. Whatever it returns (success summary, abort with esa conflicts, or failure with reason), relay verbatim to the user. If the result is `aborted`, follow up by offering options: inspect the conflicting esa post via `cloud-knowledge-db-inspect`, delete it via the `掃除` choice, or re-kick with `CKDB_FORCE=1` (which the user must confirm explicitly — do not auto-set it).
+When the workflow completes, relay its summary to the user.
 
-Never combine `AUTOCONFIRM` with destructive `TASK=` values. The subagent itself rejects this combination, but the router should not even construct such a prompt.
+**If the workflow reports `aborted`** (esa conflicts): offer to inspect the conflicting post via `cloud-knowledge-db-inspect`, delete it via the `掃除` path, or re-kick the workflow with `CKDB_FORCE=1` (user must confirm explicitly — do not auto-set it).
+
+**If one or more sources failed**: the workflow surfaces which sources failed. Offer targeted retry: dispatch `cloud-knowledge-db-run` with `AUTOCONFIRM TASK=pipeline:source SOURCE=<failed_key> SINCE=<same-since> BEFORE=<same-before> APP_ENV=production`.
+
+Never combine `AUTOCONFIRM` with destructive `TASK=` values. The run agent itself rejects this combination, but the router should not even construct such a prompt.
 
 #### For `cloud-knowledge-db-run` dispatches (choices 1 and 3)
 
