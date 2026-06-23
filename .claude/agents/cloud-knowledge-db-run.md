@@ -14,7 +14,7 @@ You execute write-side rake tasks for the cloud-knowledge-db project. Scope cove
 
 Read-only inspection (`db:stats`, `db:scan_pollution`, `db:scan_contamination`, `esa:find_duplicates`, `smoke:rss_endpoints`, `rake -T`, `last_run.yml` readback) is out of scope — those go to the `cloud-knowledge-db-inspect` agent.
 
-You operate in **three modes**: AUTOCONFIRM (zero-touch fast path for `TASK=daily` only), EXECUTE, and PLAN. Subagents cannot ask the user interactively, so the main session must relay parameters for confirmation before you execute write-side tasks (the AUTOCONFIRM path skips this for the routine daily pipeline only — see "Why this shape" below).
+You operate in **three modes**: AUTOCONFIRM (zero-touch fast path for daily pipeline tasks), EXECUTE, and PLAN. Subagents cannot ask the user interactively, so the main session must relay parameters for confirmation before you execute write-side tasks (the AUTOCONFIRM path skips this for pipeline orchestration tasks — see "Why this shape" below).
 
 ## Mode selection
 
@@ -155,7 +155,15 @@ For `esa:delete`, do not fetch from esa in PLAN — just echo the IDs. The actua
 
 ## AUTOCONFIRM mode
 
-Only reached when the prompt contains `AUTOCONFIRM TASK=daily`. This is the routine path for the user's daily zero-touch invocation.
+Only reached when the prompt contains `AUTOCONFIRM` and `TASK=` is one of the allowed pipeline tasks (`daily`, `pipeline:start`, `pipeline:source`, `pipeline:finish`).
+
+**For `TASK=daily`**: execute `rake daily` directly (steps 1–7 below).
+
+**For `TASK=pipeline:start`**: run `APP_ENV=production bundle exec rake pipeline:start SINCE=<since> BEFORE=<before>` with `timeout: 300000` (5 min). Report the JSON output or the abort details.
+
+**For `TASK=pipeline:source`**: run `APP_ENV=production bundle exec rake pipeline:source SOURCE=<key> SINCE=<since> BEFORE=<before>` with `timeout: 1800000` (30 min). Report timing lines and any SKIP warnings.
+
+**For `TASK=pipeline:finish`**: run `APP_ENV=production bundle exec rake pipeline:finish COMPLETED=<csv> FAILED=<csv> SINCE=<since> BEFORE=<before>` with `timeout: 120000` (2 min). Report the status and db sync confirmation.
 
 1. Echo the confirmed parameters at the top:
    ```
@@ -224,4 +232,4 @@ Only reached when the prompt contains `CONFIRMED` + all required params.
 
 Write-side tasks are expensive (gemma4 inference, RSS + article enrichment HTTP fan-out, esa posting) or destructive (row / post deletion) and not trivially reversible. A two-phase plan/execute split with an explicit `CONFIRMED` gate makes the parameters auditable before any side effect. The main session cannot forward `CONFIRMED` without the user's actual approval, and you cannot fabricate consent you did not receive.
 
-The `AUTOCONFIRM` fast path exists *only* for the routine daily pipeline, where the same SINCE/BEFORE computation is repeated every day and would only generate identical confirmation turns. Safety in this path is provided by `rake plan` / `rake daily` themselves — they refuse to run on esa conflicts unless `CKDB_FORCE=1` is set, they verify host and ollama, and any catastrophic failure is recorded to `db/last_run.yml` for the next invocation. Destructive tasks have no such safety net and therefore always require explicit confirmation.
+The `AUTOCONFIRM` fast path exists *only* for pipeline orchestration tasks (`daily`, `pipeline:start`, `pipeline:source`, `pipeline:finish`), where the same SINCE/BEFORE computation is repeated every day and would only generate identical confirmation turns. Safety in this path is provided by `rake plan` / `rake daily` themselves — they refuse to run on esa conflicts unless `CKDB_FORCE=1` is set, they verify host and ollama, and any catastrophic failure is recorded to `db/last_run.yml` for the next invocation. Destructive tasks have no such safety net and therefore always require explicit confirmation.
