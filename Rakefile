@@ -571,8 +571,8 @@ task :daily do
   require 'date'
   require 'time'
   require 'json'
-  # Hoist per-phase requires out of the source threads so concurrent first-require
-  # races (autoload / constant resolution) cannot happen.
+  # Hoist per-phase requires before the sequential source loop so autoload /
+  # constant resolution is settled before any source processing begins.
   require 'cloud_blog_collector'
   require 'tmpdir'
   require 'ruby_knowledge_store'
@@ -597,50 +597,41 @@ task :daily do
   end
 
   begin
-    bookmark_mutex = Mutex.new
     t_total = Time.now
 
-    threads = cfg['sources'].keys.map do |key|
-      Thread.new do
-        Thread.current.report_on_exception = true
-        t_src_start = Time.now
-        puts "==== #{key} (#{since}..#{before}) ===="
+    cfg['sources'].keys.each do |key|
+      t_src_start = Time.now
+      puts "==== #{key} (#{since}..#{before}) ===="
 
-        bookmark_mutex.synchronize do
-          d = TB.load(LAST_RUN_PATH)
-          d = TB.mark_started(d, key, before: before, at: Time.now)
-          TB.save(LAST_RUN_PATH, d)
-        end
+      d = TB.load(LAST_RUN_PATH)
+      d = TB.mark_started(d, key, before: before, at: Time.now)
+      TB.save(LAST_RUN_PATH, d)
 
-        begin
-          t0 = Time.now
-          dir = do_fetch(key, since: since.to_time, before: before.to_time)
-          puts "[timing] #{key} fetch   #{(Time.now - t0).round(2)}s"
+      begin
+        t0  = Time.now
+        dir = do_fetch(key, since: since.to_time, before: before.to_time)
+        puts "[timing] #{key} fetch   #{(Time.now - t0).round(2)}s"
 
-          t0 = Time.now
-          do_import(key, dir: dir)
-          puts "[timing] #{key} import  #{(Time.now - t0).round(2)}s"
+        t0 = Time.now
+        do_import(key, dir: dir)
+        puts "[timing] #{key} import  #{(Time.now - t0).round(2)}s"
 
-          t0 = Time.now
-          do_esa(key, dir: dir)
-          puts "[timing] #{key} esa     #{(Time.now - t0).round(2)}s"
+        t0 = Time.now
+        do_esa(key, dir: dir)
+        puts "[timing] #{key} esa     #{(Time.now - t0).round(2)}s"
 
-          puts "[timing] #{key} TOTAL   #{(Time.now - t_src_start).round(2)}s"
+        puts "[timing] #{key} TOTAL   #{(Time.now - t_src_start).round(2)}s"
 
-          bookmark_mutex.synchronize do
-            d = TB.load(LAST_RUN_PATH)
-            d = TB.mark_completed(d, key, before: before, at: Time.now,
+        d = TB.load(LAST_RUN_PATH)
+        d = TB.mark_completed(d, key, before: before, at: Time.now,
               models_used: { 'daily_summarizer' => cfg['models']['daily_summarizer'] })
-            TB.save(LAST_RUN_PATH, d)
-          end
-        rescue => e
-          warn "SKIP #{key}: #{e.class}: #{e.message}"
-          warn e.backtrace.first(5).join("\n") if ENV['DEBUG']
-        end
+        TB.save(LAST_RUN_PATH, d)
+      rescue => e
+        warn "SKIP #{key}: #{e.class}: #{e.message}"
+        warn e.backtrace.first(5).join("\n") if ENV['DEBUG']
       end
     end
 
-    threads.each(&:join)
     puts "[timing] daily WALLCLOCK #{(Time.now - t_total).round(2)}s"
 
     if (copy_to = cfg['db_copy_to'])
