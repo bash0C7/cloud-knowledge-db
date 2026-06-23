@@ -24,25 +24,25 @@ const WINDOW_SCHEMA = {
   },
 }
 
-const window = await agent(
+const dateWindow = await agent(
   `Read the file ${REPO}/db/last_run.yml and compute the date window for the next pipeline run.
 
 Steps:
 1. Read ${REPO}/db/last_run.yml (use the Read tool or Bash cat — NOT sqlite3).
 2. Find the minimum last_completed_before value across all of these source keys:
    aws_blog, gcp_blog, gws_blog, gitlab_blog, classmethod_blog.
-   If a source is missing or has no last_completed_before, treat it as yesterday.
+   If ANY source is missing or has no last_completed_before entry, set since = BEFORE minus 1 day (do not use the other sources' values — any missing source overrides to yesterday).
 3. Get today's date in JST: run TZ=Asia/Tokyo date +%Y-%m-%d
 4. Return JSON: { since: "<min last_completed_before>", before: "<today JST>" }`,
   { label: 'inspect:window', phase: 'Inspect', schema: WINDOW_SCHEMA }
 )
 
-if (!window) {
+if (!dateWindow) {
   log('ERROR: Could not read bookmark — aborting')
   return { status: 'error', reason: 'bookmark read failed' }
 }
 
-const { since, before } = window
+const { since, before } = dateWindow
 log(`Window: SINCE=${since} BEFORE=${before}`)
 
 // Stage 2: pipeline:start — preflight + mark_started all sources
@@ -73,8 +73,13 @@ Result rules:
   { label: 'pipeline:start', phase: 'Preflight', schema: START_SCHEMA }
 )
 
-if (!startResult || startResult.status === 'aborted') {
-  const conflicts = startResult?.conflicts || '(no detail)'
+if (!startResult) {
+  log('ERROR: pipeline:start returned no result')
+  return { status: 'error', reason: 'pipeline:start returned no result', since, before }
+}
+
+if (startResult.status === 'aborted') {
+  const conflicts = startResult.conflicts || '(no detail)'
   log(`ABORTED: esa conflicts detected\n${conflicts}`)
   return {
     status:    'aborted',
@@ -85,7 +90,7 @@ if (!startResult || startResult.status === 'aborted') {
   }
 }
 
-if (!startResult || startResult.status === 'error') {
+if (startResult.status === 'error') {
   log('ERROR: pipeline:start failed')
   return { status: 'error', reason: 'pipeline:start failed', since, before }
 }
@@ -159,7 +164,9 @@ Result rules:
   { label: 'pipeline:finish', phase: 'Finish', schema: FINISH_SCHEMA }
 )
 
-const finalStatus = allFailed.length === 0 ? 'ok' : 'partial_failed'
+const finalStatus = finishResult?.status === 'failed'
+  ? 'finish_failed'
+  : allFailed.length === 0 ? 'ok' : 'partial_failed'
 log(`Pipeline complete: status=${finalStatus} completed=${completed.length}/${SOURCE_KEYS.length}`)
 
 return {
