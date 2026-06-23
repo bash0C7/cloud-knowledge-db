@@ -48,6 +48,103 @@ task :plan do
   )
 end
 
+namespace :pipeline do
+  desc 'Pre-flight: host/ollama check, esa preflight, mark_started all sources'
+  task :start do
+    require 'bundler/setup'
+    require 'date'
+    require 'json'
+    require 'ruby_knowledge_store'
+    require_relative 'lib/cloud_knowledge_db/pipeline'
+
+    since  = Date.parse(ENV['SINCE']  || raise(ArgumentError, 'SINCE required'))
+    before = Date.parse(ENV['BEFORE'] || raise(ArgumentError, 'BEFORE required'))
+
+    CloudKnowledgeDb::Config.ensure_write_host!
+    CloudKnowledgeDb::OllamaRunner.ensure_available!
+
+    result = CloudKnowledgeDb::Pipeline.start(
+      cfg: cfg, bookmark_path: LAST_RUN_PATH, since: since, before: before
+    )
+
+    if result[:status] == :aborted
+      record_run('aborted', reason: "esa conflict: #{result[:conflicts].size}件")
+      CloudKnowledgeDb::Notifier.notify(status: 'aborted',
+        reason: "esa conflict: #{result[:conflicts].size}件")
+      abort "=== pipeline:start aborted ===\n" \
+            "#{JSON.pretty_generate(result[:conflicts].map(&:to_h))}"
+    end
+
+    puts JSON.generate(status: 'ok', since: since.to_s, before: before.to_s)
+  end
+
+  desc 'Run fetch→import→esa for one source (no bookmark writes)'
+  task :source do
+    require 'bundler/setup'
+    require 'date'
+    require 'cloud_blog_collector'
+    require 'tmpdir'
+    require 'ruby_knowledge_store'
+    require_relative 'lib/cloud_knowledge_db/esa_writer'
+    require_relative 'lib/cloud_knowledge_db/esa_naming'
+    require_relative 'lib/cloud_knowledge_db/daily_summarizer'
+
+    key    = ENV['SOURCE'] || raise(ArgumentError, 'SOURCE required')
+    since  = Date.parse(ENV['SINCE']  || raise(ArgumentError, 'SINCE required')).to_time
+    before = Date.parse(ENV['BEFORE'] || raise(ArgumentError, 'BEFORE required')).to_time
+
+    CloudKnowledgeDb::Config.ensure_write_host!
+    CloudKnowledgeDb::OllamaRunner.ensure_available!
+
+    t0  = Time.now
+    dir = do_fetch(key, since: since, before: before)
+    puts "[pipeline:source] #{key} fetch  #{(Time.now - t0).round(2)}s"
+
+    t0 = Time.now
+    do_import(key, dir: dir)
+    puts "[pipeline:source] #{key} import #{(Time.now - t0).round(2)}s"
+
+    t0 = Time.now
+    do_esa(key, dir: dir)
+    puts "[pipeline:source] #{key} esa    #{(Time.now - t0).round(2)}s"
+  end
+
+  desc 'Post-flight: mark_completed, record_run, db sync, notify'
+  task :finish do
+    require 'bundler/setup'
+    require 'date'
+    require_relative 'lib/cloud_knowledge_db/pipeline'
+    require_relative 'lib/cloud_knowledge_db/db_syncer'
+
+    since     = Date.parse(ENV['SINCE']  || raise(ArgumentError, 'SINCE required'))
+    before    = Date.parse(ENV['BEFORE'] || raise(ArgumentError, 'BEFORE required'))
+    completed = (ENV['COMPLETED'] || '').split(',').reject(&:empty?)
+    failed    = (ENV['FAILED']    || '').split(',').reject(&:empty?)
+
+    CloudKnowledgeDb::Config.ensure_write_host!
+
+    result = CloudKnowledgeDb::Pipeline.finish(
+      cfg: cfg, bookmark_path: LAST_RUN_PATH,
+      completed: completed, failed: failed,
+      since: since, before: before
+    )
+
+    record_run(result[:status], reason: result[:reason])
+
+    if (copy_to = cfg['db_copy_to'])
+      src = File.expand_path(cfg['db_path'], __dir__)
+      dst = File.expand_path(copy_to)
+      CloudKnowledgeDb::DbSyncer.sync(source: src, destination: dst)
+      puts "[sync] db copied to #{dst}"
+    end
+
+    CloudKnowledgeDb::Notifier.notify(
+      status: result[:status], since: since, before: before
+    )
+    puts "[pipeline:finish] status=#{result[:status]}"
+  end
+end
+
 def write_md(dir, fname, frontmatter, body)
   require 'yaml'
   fm_yaml = frontmatter.transform_keys(&:to_s).to_yaml.sub(/^---\n/, '')
