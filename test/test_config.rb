@@ -10,9 +10,9 @@ class ConfigTest < Test::Unit::TestCase
     assert(cfg.key?('models'),  "config should have 'models' key from environments/test.yml")
   end
 
-  def test_daily_summarizer_resolves_to_local_ollama_gemma4
+  def test_daily_summarizer_resolves_to_local_llama
     cfg = CloudKnowledgeDb::Config.load
-    assert_equal({ 'provider' => 'local_ollama', 'model' => 'gemma4:e2b' }, cfg['models']['daily_summarizer'])
+    assert_equal({ 'provider' => 'local_llama', 'model' => 'qwen3.6-35b-a3b-iq2m' }, cfg['models']['daily_summarizer'])
   end
 
   def test_each_source_declares_expected_lang

@@ -6,7 +6,7 @@ Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace / GitL
 
 - **Language:** Ruby 4.0 (CRuby — Python absolutely prohibited)
 - **DB:** SQLite3 + sqlite-vec (FTS5 trigram + vec0 768-dim) — reuses `ruby-knowledge-store` schema unchanged
-- **LLM:** local ollama gemma4 via HTTP `/api/generate` for the daily esa summary. No per-article translation at ingest — English rows are stored as-is and the MCP host agent translates on demand at query time (same pattern as `ruby-rdoc-collector`).
+- **LLM:** local llama-server (llama.cpp, Qwen3.6-35B-A3B IQ2_M on the MBA write host) via the OpenAI-compatible `/v1/chat/completions` for the daily esa summary. No per-article translation at ingest — English rows are stored as-is and the MCP host agent translates on demand at query time (same pattern as `ruby-rdoc-collector`).
 - **Test:** test-unit xUnit (t-wada TDD)
 
 ## Architecture
@@ -57,7 +57,7 @@ One article = one DB record holding raw source-language content. Embeddings use 
 ```
 Phase 1 (fetch)  RSS/ATOM → MD → tmpdir
 Phase 2 (import) MD → SQLite (content_hash idempotent)
-Phase 3 (esa)    English MDs → gemma4 summary → Japanese esa post
+Phase 3 (esa)    English MDs → local LLM summary → Japanese esa post
                  (official 4 sources only; classmethod skipped)
 ```
 
@@ -112,18 +112,18 @@ bundle exec rake smoke:rss_endpoints
 | Role | Class | Provider | Model |
 |---|---|---|---|
 | classmethod tag classification | `ContentClassifier` | claude | haiku |
-| Daily esa summary | `DailySummarizer` | local_ollama | gemma4 |
+| Daily esa summary | `DailySummarizer` | local_llama | qwen3.6-35b-a3b-iq2m |
 | Default | — | claude | sonnet |
 
 Each consumer resolves `(provider, model)` at construction via `Runner.build`. Config lives in `config/environments/<env>.yml` under `models:` — edit that file to swap models, no code change needed.
 
-### ollama runtime
+### llama-server runtime
 
-The local ollama server is **Ollama.app** (Homebrew cask `ollama-app`), running as a menu-bar agent on the write host. It bundles the `llama-server` backend, which the Homebrew formula `ollama` does not — never use the formula for this project. `rake daily` requires Ollama.app running (verify `POST /api/generate` returns HTTP 200). A wedged or backend-less ollama hangs `summarize` until `OllamaRunner::READ_TIMEOUT_SEC` (600s); that failure is labelled `esa summarize failed` (not `esa post failed`) so debugging targets the LLM layer.
+The local model is served by **llama-server** (Homebrew `llama.cpp`) on the write host (MBA), managed by the `pj-agent-marionette-ma` gem's `llm` CLI — `marionette-ma llm up local` / `down local` / `status`, launchd label `local.llama-server-local`. `rake daily` requires it healthy (verify `GET /health` returns HTTP 200; `LlamaCppRunner.ensure_available!` checks this before any phase runs). A wedged or unreachable server hangs `summarize` until `LlamaCppRunner::READ_TIMEOUT_SEC` (600s); that failure is labelled `esa summarize failed` (not `esa post failed`) so debugging targets the LLM layer. Host is overridable via `LLAMA_SERVER_HOST` (default `http://127.0.0.1:8081`, i.e. MBA-local — the pipeline is designed to complete without depending on the LAN or MBP).
 
 ## CLAUDE.md Contamination Guard
 
-- `DailySummarizer` runs on `OllamaRunner` (local HTTP) — unaffected by `~/CLAUDE.md`.
+- `DailySummarizer` runs on `LlamaCppRunner` (local HTTP) — unaffected by `~/CLAUDE.md`.
 - `ContentClassifier` uses `ClaudeRunner` with `chdir: "/tmp"` to keep the project `CLAUDE.md` out of scope.
 - Every consumer's `SYSTEM_PROMPT` forbids slang / dialects / persona output.
 - Contamination markers and per-consumer prompt checks live in `test/test_contamination.rb` (asserted on every test pass).
@@ -139,7 +139,7 @@ aws_blog:
   last_completed_at: 2026-04-16T09:08:00+09:00
   last_completed_before: 2026-04-16
   models_used:
-    daily_summarizer: { provider: local_ollama, model: gemma4 }
+    daily_summarizer: { provider: local_llama, model: qwen3.6-35b-a3b-iq2m }
 last_run:
   status: ok               # ok | aborted | failed
   finished_at: 2026-04-30T09:08:30+09:00

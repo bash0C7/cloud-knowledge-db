@@ -61,7 +61,7 @@ namespace :pipeline do
     before = Date.parse(ENV['BEFORE'] || raise(ArgumentError, 'BEFORE required'))
 
     CloudKnowledgeDb::Config.ensure_write_host!
-    CloudKnowledgeDb::OllamaRunner.ensure_available!
+    CloudKnowledgeDb::Runner.ensure_available!(provider: cfg['models']['daily_summarizer']['provider'])
 
     result = CloudKnowledgeDb::Pipeline.start(
       cfg: cfg, bookmark_path: LAST_RUN_PATH, since: since, before: before
@@ -94,7 +94,7 @@ namespace :pipeline do
     before = Date.parse(ENV['BEFORE'] || raise(ArgumentError, 'BEFORE required')).to_time
 
     CloudKnowledgeDb::Config.ensure_write_host!
-    CloudKnowledgeDb::OllamaRunner.ensure_available!
+    CloudKnowledgeDb::Runner.ensure_available!(provider: cfg['models']['daily_summarizer']['provider'])
 
     t0  = Time.now
     dir = do_fetch(key, since: since, before: before)
@@ -581,7 +581,7 @@ task :daily do
   require_relative 'lib/cloud_knowledge_db/daily_summarizer'
 
   CloudKnowledgeDb::Config.ensure_write_host!
-  CloudKnowledgeDb::OllamaRunner.ensure_available!
+  CloudKnowledgeDb::Runner.ensure_available!(provider: cfg['models']['daily_summarizer']['provider'])
 
   since, before = resolve_daily_window
 

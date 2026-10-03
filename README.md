@@ -2,7 +2,7 @@
 
 Orchestrator for daily ingestion of cloud platform official blogs into SQLite, esa, and chiebukuro-mcp.
 
-Collects AWS / Google Cloud / Google Workspace / GitLab official blogs (English) and classmethod.jp explainer articles (Japanese), stores the English originals as-is into SQLite, and posts a per-provider Japanese summary to esa using a local ollama gemma4 model. On-demand Japanese translation of English rows happens downstream in the MCP host agent (same pattern as `ruby-rdoc-collector`).
+Collects AWS / Google Cloud / Google Workspace / GitLab official blogs (English) and classmethod.jp explainer articles (Japanese), stores the English originals as-is into SQLite, and posts a per-provider Japanese summary to esa using a local llama.cpp model. On-demand Japanese translation of English rows happens downstream in the MCP host agent (same pattern as `ruby-rdoc-collector`).
 
 ---
 
@@ -27,15 +27,14 @@ bundle config set --local path 'vendor/bundle'
 bundle install
 ```
 
-**ollama** (required for the daily esa summary):
+**llama-server** (required for the daily esa summary — managed by the `pj-agent-marionette-ma` gem, not installed per-repo):
 
 ```bash
-brew install ollama
-brew services start ollama        # or: ollama serve
-ollama pull gemma4:e2b            # production default, 7.2GB
+marionette-ma llm status        # confirm the "local" endpoint is healthy
+marionette-ma llm up local      # start it if not (idempotent)
 ```
 
-`DailySummarizer` calls `http://localhost:11434/api/generate` with `stream=false, think=false`. Override the host via `OLLAMA_HOST=...`; enable think mode via `OLLAMA_THINK=true` (default `false`; think mode is ~2× slower with no measured quality win on this workload).
+`DailySummarizer` calls `http://127.0.0.1:8081/v1/chat/completions` (OpenAI-compatible, `chat_template_kwargs: {enable_thinking: false}`). Override the host via `LLAMA_SERVER_HOST=...`. This defaults to the MBA-local endpoint so the daily pipeline completes without the LAN or MBP.
 
 **esa API token** (macOS Keychain):
 
@@ -50,7 +49,7 @@ brew install claude
 claude login
 ```
 
-The current default has translation/summarization on local ollama and only `classifier` on claude. Ollama runs locally, so no `ANTHROPIC_API_KEY` is needed for the daily pipeline.
+The current default has translation/summarization on the local llama-server and only `classifier` on claude. The llama-server runs locally, so no `ANTHROPIC_API_KEY` is needed for the daily pipeline.
 
 ---
 
@@ -75,16 +74,16 @@ Consumers resolve to a `(provider, model)` pair via `CloudKnowledgeDb::Runner.bu
 | Role | Class | Provider | Model |
 |---|---|---|---|
 | classmethod tag classification | `ContentClassifier` | claude | haiku |
-| Daily esa summary | `DailySummarizer` | local_ollama | gemma4:e2b |
+| Daily esa summary | `DailySummarizer` | local_llama | qwen3.6-35b-a3b-iq2m |
 | Default | — | claude | sonnet |
 
 Config per environment (`config/environments/<env>.yml`):
 
 ```yaml
 models:
-  classifier:       { provider: claude,       model: haiku }
-  daily_summarizer: { provider: local_ollama, model: "gemma4:e2b" }
-  default:          { provider: claude,       model: sonnet }
+  classifier:       { provider: claude,      model: haiku }
+  daily_summarizer: { provider: local_llama, model: "qwen3.6-35b-a3b-iq2m" }
+  default:          { provider: claude,      model: sonnet }
 ```
 
 Switching daily_summarizer to claude only requires editing this YAML; no code change.
@@ -164,7 +163,7 @@ Phase 1 (fetch)   RSS/ATOM → enriched English MD (or classmethod Japanese MD) 
         ↓
 Phase 2 (import)  MD → SQLite (content_hash UNIQUE — duplicates auto-skipped)
         ↓
-Phase 3 (esa)    English MDs → gemma4 one Japanese prose summary per article
+Phase 3 (esa)    English MDs → local LLM one Japanese prose summary per article
                  → concatenated under `# YYYY-MM-DD <PROVIDER> まとめ` → esa API
                  (official 4 sources; classmethod_blog is DB-only)
 ```

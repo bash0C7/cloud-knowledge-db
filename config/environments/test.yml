@@ -11,5 +11,5 @@ esa:
 
 models:
   classifier:       { provider: claude,       model: haiku }
-  daily_summarizer: { provider: local_ollama, model: "gemma4:e2b" }
+  daily_summarizer: { provider: local_llama, model: "qwen3.6-35b-a3b-iq2m" }
   default:          { provider: claude,       model: haiku }

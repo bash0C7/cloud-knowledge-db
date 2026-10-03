@@ -3,10 +3,10 @@ require_relative 'runner'
 
 module CloudKnowledgeDb
   class DailySummarizer
-    # Per-article prompt kept intentionally small and rigid so gemma4's
-    # instruction following stays reliable: we only ask for bullets, never
-    # for the heading or the link (those are assembled in Ruby so the LLM
-    # cannot break the layout).
+    # Per-article prompt kept intentionally small and rigid so a small local
+    # model's instruction following stays reliable: we only ask for bullets,
+    # never for the heading or the link (those are assembled in Ruby so the
+    # LLM cannot break the layout).
     SYSTEM_PROMPT = <<~JA.freeze
       あなたはクラウドプラットフォームの公式技術ブログ1記事を日本語で要約するテクニカルライターです。
       与えられた英語原文1本から、読者が元記事を読まなくても主要な事実・数値・仕様を把握できるだけの、情報量のある日本語の解説文を作成してください。
@@ -23,7 +23,7 @@ module CloudKnowledgeDb
         - 英語の要約を出力してはならない（必ず日本語）。
     JA
 
-    def initialize(provider: 'local_ollama', model: 'gemma4')
+    def initialize(provider: 'local_llama', model: 'qwen3.6-35b-a3b-iq2m')
       @runner = Runner.build(provider: provider, model: model)
     end
 
