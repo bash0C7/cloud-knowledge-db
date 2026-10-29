@@ -2,7 +2,7 @@
 require 'rake/testtask'
 require_relative 'lib/cloud_knowledge_db/config'
 require_relative 'lib/cloud_knowledge_db/trunk_bookmark'
-require_relative 'lib/cloud_knowledge_db/ollama_runner'
+require_relative 'lib/cloud_knowledge_db/runner'
 require_relative 'lib/cloud_knowledge_db/db_syncer'
 require_relative 'lib/cloud_knowledge_db/esa_preflight'
 require_relative 'lib/cloud_knowledge_db/notifier'
