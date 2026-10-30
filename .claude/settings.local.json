@@ -30,8 +30,12 @@
       "WebSearch",
       "mcp__chiebukuro-mcp__chiebukuro_query_cloud_knowledge",
       "Bash(APP_ENV=production SINCE=* BEFORE=* bundle exec rake daily *)",
+      "Bash(APP_ENV=production ESA_PERIOD=month SINCE=* BEFORE=* bundle exec rake daily *)",
+      "Bash(APP_ENV=production ESA_PERIOD=month SINCE=* BEFORE=* bundle exec rake daily)",
       "Bash(APP_ENV=test bundle exec rake *)",
-      "Skill(cloud-knowledge-db)"
+      "Skill(cloud-knowledge-db)",
+      "Bash(APP_ENV=production SINCE=2026-06-19 BEFORE=2026-06-24 bundle exec *)",
+      "Workflow(daily-pipeline)"
     ]
   }
 }
