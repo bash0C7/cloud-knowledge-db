@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 require_relative 'test_helper'
+require 'time'
 require 'cloud_knowledge_db/esa_naming'
 
 class EsaNamingTest < Test::Unit::TestCase
@@ -15,6 +16,11 @@ class EsaNamingTest < Test::Unit::TestCase
       date:   '2026-04-16'
     )
     assert_equal 'production/cloud-trunk-changes/aws/2026/04/16', category
+  end
+
+  def test_content_date_uses_jst_regardless_of_source_offset
+    assert_equal '2026-09-01', CloudKnowledgeDb::EsaNaming.content_date(Time.parse('2026-08-31T17:00:00-07:00'))
+    assert_equal '2026-08-31', CloudKnowledgeDb::EsaNaming.content_date(Time.parse('2026-08-31T07:45:00-07:00'))
   end
 
   def test_period_key_day_keeps_full_date
