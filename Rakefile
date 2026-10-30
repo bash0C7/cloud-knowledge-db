@@ -181,7 +181,7 @@ def do_fetch(key, since:, before:)
 
   dir = Dir.mktmpdir("cloudkb_#{key}_")
   records.each do |r|
-    date  = r[:published_at].to_date.to_s
+    date  = CloudKnowledgeDb::EsaNaming.content_date(r[:published_at])
     slug  = slug_for(r[:url])
     fname = "#{date}-#{src_cfg['short_name']}-#{slug}.md"
     write_md(dir, fname, {

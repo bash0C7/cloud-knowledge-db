@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require 'date'
 
 module CloudKnowledgeDb
   # esa API は name をタイトル、category を階層として分けて受け取る。
@@ -9,6 +10,10 @@ module CloudKnowledgeDb
 
     def build_name(date:, short_name:)
       "#{date}-#{short_name}-cloud-changes"
+    end
+
+    def content_date(time)
+      time.getlocal('+09:00').to_date.to_s
     end
 
     def period_key(date_str, period:)
