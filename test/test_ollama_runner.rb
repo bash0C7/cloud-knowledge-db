@@ -19,7 +19,7 @@ class OllamaRunnerTest < Test::Unit::TestCase
   end
 
   def test_ensure_available_passes_when_daemon_reachable
-    skip 'ollama daemon not reachable' unless ollama_reachable?
+    omit 'ollama daemon not reachable' unless ollama_reachable?
     assert_nothing_raised do
       CloudKnowledgeDb::OllamaRunner.ensure_available!
     end
