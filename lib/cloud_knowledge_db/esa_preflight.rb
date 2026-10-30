@@ -13,13 +13,13 @@ module CloudKnowledgeDb
       keyword_init: true
     )
 
-    def self.conflicts(cfg:, since:, before:, searcher:)
+    def self.conflicts(cfg:, since:, before:, searcher:, period: ENV.fetch('ESA_PERIOD', 'day'))
       results = []
       team = cfg.dig('esa', 'team')
+      keys = (since...before).map { |d| EsaNaming.period_key(d.to_s, period: period) }.uniq
       cfg.dig('esa', 'sources').each do |source_key, esa_src|
         short = cfg.dig('sources', source_key, 'short_name')
-        (since...before).each do |date|
-          date_str = date.to_s
+        keys.each do |date_str|
           name     = EsaNaming.build_name(date: date_str, short_name: short)
           category = EsaNaming.build_category(prefix: esa_src['category'], date: date_str)
           posts    = searcher.search(team: team, category: category, name: name) || []

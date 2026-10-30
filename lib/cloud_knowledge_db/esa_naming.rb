@@ -11,6 +11,10 @@ module CloudKnowledgeDb
       "#{date}-#{short_name}-cloud-changes"
     end
 
+    def period_key(date_str, period:)
+      period == 'month' ? date_str[0, 7] : date_str
+    end
+
     def build_category(prefix:, date:)
       "#{prefix}/#{date.tr('-', '/')}"
     end

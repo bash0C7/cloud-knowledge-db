@@ -17,6 +17,22 @@ class EsaNamingTest < Test::Unit::TestCase
     assert_equal 'production/cloud-trunk-changes/aws/2026/04/16', category
   end
 
+  def test_period_key_day_keeps_full_date
+    assert_equal '2026-08-15', CloudKnowledgeDb::EsaNaming.period_key('2026-08-15', period: 'day')
+  end
+
+  def test_period_key_month_truncates_to_year_month
+    assert_equal '2026-08', CloudKnowledgeDb::EsaNaming.period_key('2026-08-15', period: 'month')
+  end
+
+  def test_month_key_builds_month_category_and_name
+    key = CloudKnowledgeDb::EsaNaming.period_key('2026-08-15', period: 'month')
+    assert_equal 'production/cloud-trunk-changes/aws/2026/08',
+                 CloudKnowledgeDb::EsaNaming.build_category(prefix: 'production/cloud-trunk-changes/aws', date: key)
+    assert_equal '2026-08-aws-cloud-changes',
+                 CloudKnowledgeDb::EsaNaming.build_name(date: key, short_name: 'aws')
+  end
+
   def test_full_name_does_not_double_prefix
     prefix = 'production/cloud-trunk-changes/aws'
     date   = '2026-04-16'

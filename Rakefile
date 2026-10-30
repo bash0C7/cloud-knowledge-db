@@ -249,7 +249,11 @@ def do_esa(key, dir:)
   summarizer = CloudKnowledgeDb::DailySummarizer.new(provider: m['provider'], model: m['model'])
 
   paths    = Dir.glob(File.join(dir, "*-#{src_cfg['short_name']}-*.md"))
-  grouped  = paths.group_by { |p| File.basename(p)[/^\d{4}-\d{2}-\d{2}/] }
+  period   = ENV.fetch('ESA_PERIOD', 'day')
+  grouped  = paths.group_by do |p|
+    d = File.basename(p)[/^\d{4}-\d{2}-\d{2}/]
+    d && CloudKnowledgeDb::EsaNaming.period_key(d, period: period)
+  end
 
   grouped.each do |date, group|
     next if date.nil?

@@ -71,6 +71,24 @@ class EsaPreflightTest < Test::Unit::TestCase
     assert_equal %w[2026-04-26 2026-04-29], result.map(&:date).sort
   end
 
+  def test_month_period_checks_one_name_per_month
+    searcher = CloudKnowledgeDb::EsaPreflight::StubSearcher.new(
+      ['bist', 'test/cloud-trunk-changes/aws/2026/08', '2026-08-aws-cloud-changes'] => [
+        { 'number' => 200, 'url' => 'https://bist.esa.io/posts/200' }
+      ]
+    )
+    result = CloudKnowledgeDb::EsaPreflight.conflicts(
+      cfg: base_cfg,
+      since: Date.new(2026, 8, 1),
+      before: Date.new(2026, 9, 1),
+      searcher: searcher,
+      period: 'month'
+    )
+    assert_equal 1, result.size
+    assert_equal '2026-08', result.first.date
+    assert_equal '2026-08-aws-cloud-changes', result.first.name
+  end
+
   def multi_source_cfg
     {
       'esa' => {
