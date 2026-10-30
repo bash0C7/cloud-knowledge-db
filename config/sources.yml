@@ -5,6 +5,9 @@ sources:
     adapter: rss
     source: aws/blogs/news
     expected_lang: en
+    archive:
+      type: html_pages
+      url: https://aws.amazon.com/blogs/aws/page/%d/
 
   gcp_blog:
     short_name: gcp
@@ -19,6 +22,9 @@ sources:
     adapter: rss
     source: gws/blogs/all
     expected_lang: en
+    archive:
+      type: blogger
+      url: https://workspaceupdates.googleblog.com/feeds/posts/default
 
   gitlab_blog:
     short_name: gitlab
@@ -26,6 +32,10 @@ sources:
     adapter: rss
     source: gitlab/blogs/all
     expected_lang: en
+    archive:
+      type: sitemap
+      url: https://about.gitlab.com/blog.xml
+      include: '\Ahttps://about\.gitlab\.com/blog/[^/]+/\z'
 
   classmethod_blog:
     short_name: classmethod
