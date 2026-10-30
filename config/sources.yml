@@ -43,7 +43,7 @@ sources:
     adapter: classmethod
     expected_lang: ja
     tag_to_source:
-      AWS:          aws/classmethod
-      "Google Cloud": gcp/classmethod
-      Workspace:    gws/classmethod
-      GitLab:       gitlab/classmethod
+      aws:              aws/classmethod
+      google-cloud:     gcp/classmethod
+      google-workspace: gws/classmethod
+      gitlab:           gitlab/classmethod
