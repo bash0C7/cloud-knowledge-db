@@ -110,7 +110,7 @@ bundle exec rake smoke:rss_endpoints
 | Role | Class | Provider | Model |
 |---|---|---|---|
 | classmethod tag classification | `ContentClassifier` | claude | haiku |
-| Daily esa summary | `DailySummarizer` | local_llama | qwen3.6-35b-a3b-iq2m |
+| Daily esa summary | `DailySummarizer` | local_llama | qwen3.6-35b-a3b |
 | Default | — | claude | sonnet |
 
 Each consumer resolves `(provider, model)` at construction via `Runner.build`. Config lives in `config/environments/<env>.yml` under `models:` — edit that file to swap models, no code change needed.
@@ -137,7 +137,7 @@ aws_blog:
   last_completed_at: 2026-04-16T09:08:00+09:00
   last_completed_before: 2026-04-16
   models_used:
-    daily_summarizer: { provider: local_llama, model: qwen3.6-35b-a3b-iq2m }
+    daily_summarizer: { provider: local_llama, model: qwen3.6-35b-a3b }
 last_run:
   status: ok               # ok | aborted | failed
   finished_at: 2026-04-30T09:08:30+09:00

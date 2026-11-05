@@ -23,7 +23,7 @@ module CloudKnowledgeDb
         - 英語の要約を出力してはならない（必ず日本語）。
     JA
 
-    def initialize(provider: 'local_llama', model: 'qwen3.6-35b-a3b-iq2m')
+    def initialize(provider: 'local_llama', model: 'qwen3.6-35b-a3b')
       @runner = Runner.build(provider: provider, model: model)
     end
 

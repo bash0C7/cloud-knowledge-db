@@ -79,7 +79,7 @@ Consumers resolve to a `(provider, model)` pair via `CloudKnowledgeDb::Runner.bu
 | Role | Class | Provider | Model |
 |---|---|---|---|
 | classmethod tag classification | `ContentClassifier` | claude | haiku |
-| Daily esa summary | `DailySummarizer` | local_llama | qwen3.6-35b-a3b-iq2m |
+| Daily esa summary | `DailySummarizer` | local_llama | qwen3.6-35b-a3b |
 | Default | — | claude | sonnet |
 
 Config per environment (`config/environments/<env>.yml`):
@@ -87,7 +87,7 @@ Config per environment (`config/environments/<env>.yml`):
 ```yaml
 models:
   classifier:       { provider: claude,      model: haiku }
-  daily_summarizer: { provider: local_llama, model: "qwen3.6-35b-a3b-iq2m" }
+  daily_summarizer: { provider: local_llama, model: "qwen3.6-35b-a3b" }
   default:          { provider: claude,      model: sonnet }
 ```
 
