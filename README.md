@@ -22,7 +22,7 @@ Collects AWS / Google Cloud / Google Workspace official blogs (English) and clas
 ## Setup
 
 ```bash
-rbenv local 4.0.1
+rbenv local 4.0.9
 bundle config set --local path 'vendor/bundle'
 bundle install
 ```

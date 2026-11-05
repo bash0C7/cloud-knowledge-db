@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 source 'https://rubygems.org'
 
-ruby '4.0.1'
+ruby '4.0.9'
 
 gem 'sqlite3'
 gem 'sqlite-vec'
