@@ -19,7 +19,7 @@ class LlamaCppRunnerTest < Test::Unit::TestCase
   end
 
   def test_ensure_available_passes_when_server_reachable
-    skip 'llama-server not reachable' unless llama_server_reachable?
+    omit 'llama-server not reachable' unless llama_server_reachable?
     assert_nothing_raised do
       CloudKnowledgeDb::LlamaCppRunner.ensure_available!
     end
