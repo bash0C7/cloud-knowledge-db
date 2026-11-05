@@ -151,7 +151,7 @@ last_run:
 
 ## Host Guard
 
-Write tasks (`rake daily`, `fetch:*`, `import:*`, `esa:*`, `db:delete_polluted`, `esa:delete`) check `scutil --get LocalHostName` against `allowed_write_host` in `config/environments/production.yml` (currently `MacBook-Air-M3`). Override with `ALLOW_WRITE=1`.
+Write tasks (`rake daily`, `fetch:*`, `import:*`, `esa:*`, `db:delete_polluted`, `esa:delete`) check `scutil --get LocalHostName` against `allowed_write_host` in `config/environments/production.yml` (currently `bashs-MacBook-Pro`). Override with `ALLOW_WRITE=1`.
 
 `CKDB_FORCE=1` is a separate, independent escape hatch — it bypasses `rake daily`'s esa preflight conflict gate, not the host guard. Use only when intentionally overwriting or suffix-posting despite a known esa conflict.
 
@@ -159,7 +159,7 @@ Write tasks (`rake daily`, `fetch:*`, `import:*`, `esa:*`, `db:delete_polluted`,
 
 On `rake daily` end, production copies the local DB to an iCloud Drive path (`db_copy_to` in `config/environments/production.yml`) so other Macs can consume it read-only via `chiebukuro-mcp`. The single-file copy approach avoids iCloud uploading mid-stream WAL during parallel writes.
 
-The local `db/cloud_knowledge.db` is written by 4 parallel source threads; each thread's `do_import` closes its `Store` in `ensure` to flush WAL back to the main DB. `CloudKnowledgeDb::DbSyncer.sync(source:, destination:)` then runs `PRAGMA wal_checkpoint(TRUNCATE)` to merge and empty the source WAL, deletes stale `.db-wal` / `.db-shm` at the destination, and `FileUtils.cp`s the single `.db` file. iCloud propagates it to other Macs. The write host stays `MacBook-Air-M3` via host guard.
+The local `db/cloud_knowledge.db` is written by 4 parallel source threads; each thread's `do_import` closes its `Store` in `ensure` to flush WAL back to the main DB. `CloudKnowledgeDb::DbSyncer.sync(source:, destination:)` then runs `PRAGMA wal_checkpoint(TRUNCATE)` to merge and empty the source WAL, deletes stale `.db-wal` / `.db-shm` at the destination, and `FileUtils.cp`s the single `.db` file. iCloud propagates it to other Macs. The write host stays `bashs-MacBook-Pro` via host guard.
 
 Files: `lib/cloud_knowledge_db/db_syncer.rb`, `Rakefile` `:daily` tail (invoked only when `cfg['db_copy_to']` is set), `test/test_db_syncer.rb`.
 
