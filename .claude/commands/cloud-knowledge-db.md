@@ -97,7 +97,7 @@ Based on the confirmed intent:
 
 | Intent | Dispatch target |
 |---|---|
-| **daily fast path** | Run `/daily-pipeline` workflow (saves intermediate results in script variables; 5 parallel source agents) |
+| **daily fast path** | Run `/daily-pipeline` workflow (saves intermediate results in script variables; 4 parallel source agents) |
 | 1. 取り込み (per-phase) | `cloud-knowledge-db-run` subagent (PLAN first, then CONFIRMED on approval) |
 | 2. 確認      | `cloud-knowledge-db-inspect` subagent (direct, no gate) |
 | 3. 掃除      | `cloud-knowledge-db-run` subagent (TASK=db:delete_polluted or esa:delete, PLAN then CONFIRMED) |
@@ -108,7 +108,7 @@ Based on the confirmed intent:
 
 #### For the daily fast path
 
-Trigger the `/daily-pipeline` saved workflow instead of dispatching a single run agent. The workflow handles bookmark reading, preflight, 5-way parallel source execution, and finish internally — intermediate results stay in workflow script variables, not in this session's context.
+Trigger the `/daily-pipeline` saved workflow instead of dispatching a single run agent. The workflow handles bookmark reading, preflight, 4-way parallel source execution, and finish internally — intermediate results stay in workflow script variables, not in this session's context.
 
 Say: "Run /daily-pipeline" — the runtime picks up `.claude/workflows/daily-pipeline.js`.
 

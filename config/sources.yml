@@ -26,17 +26,6 @@ sources:
       type: blogger
       url: https://workspaceupdates.googleblog.com/feeds/posts/default
 
-  gitlab_blog:
-    short_name: gitlab
-    feed_url: https://about.gitlab.com/atom.xml
-    adapter: rss
-    source: gitlab/blogs/all
-    expected_lang: en
-    archive:
-      type: sitemap
-      url: https://about.gitlab.com/blog.xml
-      include: '\Ahttps://about\.gitlab\.com/blog/[^/]+/\z'
-
   classmethod_blog:
     short_name: classmethod
     feed_url: https://dev.classmethod.jp/feed/
@@ -46,4 +35,3 @@ sources:
       aws:              aws/classmethod
       google-cloud:     gcp/classmethod
       google-workspace: gws/classmethod
-      gitlab:           gitlab/classmethod

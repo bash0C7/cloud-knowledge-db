@@ -10,7 +10,6 @@ esa:
     aws_blog:    { category: production/cloud-trunk-changes/aws }
     gcp_blog:    { category: production/cloud-trunk-changes/gcp }
     gws_blog:    { category: production/cloud-trunk-changes/gws }
-    gitlab_blog: { category: production/cloud-trunk-changes/gitlab }
 
 models:
   classifier:       { provider: claude,       model: haiku }

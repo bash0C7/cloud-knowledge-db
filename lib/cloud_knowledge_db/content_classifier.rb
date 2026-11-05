@@ -4,11 +4,11 @@ require_relative 'runner'
 module CloudKnowledgeDb
   class ContentClassifier
     SYSTEM_PROMPT = <<~EN.freeze
-      You classify a Japanese cloud-tech blog article into exactly ONE of: aws, gcp, gws, gitlab, none.
+      You classify a Japanese cloud-tech blog article into exactly ONE of: aws, gcp, gws, none.
       Output the single lowercase label only. No explanation, no punctuation.
     EN
 
-    LABELS = %w[aws gcp gws gitlab none].freeze
+    LABELS = %w[aws gcp gws none].freeze
 
     def initialize(provider: 'claude', model: 'haiku')
       @runner = Runner.build(provider: provider, model: model)

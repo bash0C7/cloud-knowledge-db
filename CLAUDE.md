@@ -2,7 +2,7 @@
 
 ## Overview
 
-Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace / GitLab official blogs into SQLite, esa, and chiebukuro-mcp.
+Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace official blogs into SQLite, esa, and chiebukuro-mcp.
 
 - **Language:** Ruby 4.0 (CRuby — Python absolutely prohibited)
 - **DB:** SQLite3 + sqlite-vec (FTS5 trigram + vec0 768-dim) — reuses `ruby-knowledge-store` schema unchanged
@@ -35,10 +35,8 @@ Reuses `ruby-knowledge-store` schema unchanged. No additions here.
 | `gcp/classmethod` | classmethod GCP articles | ja |
 | `gws/blogs/all` | Google Workspace blog | en |
 | `gws/classmethod` | classmethod Workspace articles | ja |
-| `gitlab/blogs/all` | GitLab blog | en |
-| `gitlab/classmethod` | classmethod GitLab articles | ja |
 
-Provider is always the top-level prefix (aws / gcp / gws / gitlab). `WHERE source LIKE 'aws/%'` covers official + classmethod. Official rows are English; classmethod rows are Japanese original. Japanese queries against English rows go through semantic search (or a local translation step before FTS).
+Provider is always the top-level prefix (aws / gcp / gws). `WHERE source LIKE 'aws/%'` covers official + classmethod. Official rows are English; classmethod rows are Japanese original. Japanese queries against English rows go through semantic search (or a local translation step before FTS).
 
 ## 1-Article-1-Record Design
 
@@ -58,7 +56,7 @@ One article = one DB record holding raw source-language content. Embeddings use 
 Phase 1 (fetch)  RSS/ATOM → MD → tmpdir
 Phase 2 (import) MD → SQLite (content_hash idempotent)
 Phase 3 (esa)    English MDs → local LLM summary → Japanese esa post
-                 (official 4 sources only; classmethod skipped)
+                 (official 3 sources only; classmethod skipped)
 ```
 
 Source threads run in parallel inside `rake daily` with a `Mutex`-guarded bookmark read-modify-write. tmpdir naming: `{tmpdir}/2026-04-15-aws-{slug}.md` (single English article per record).
@@ -80,7 +78,7 @@ APP_ENV=production bundle exec rake daily
 APP_ENV=production CKDB_FORCE=1 bundle exec rake daily   # bypass esa preflight (see Host Guard)
 
 # Phase-by-phase per source
-# Keys: aws, gcp, gws, gitlab, classmethod (classmethod has no esa: task)
+# Keys: aws, gcp, gws, classmethod (classmethod has no esa: task)
 APP_ENV=test SINCE=2026-04-15 BEFORE=2026-04-16 bundle exec rake fetch:aws
 APP_ENV=test DIR=$DIR bundle exec rake import:aws
 APP_ENV=test DIR=$DIR bundle exec rake esa:aws
@@ -161,7 +159,7 @@ Write tasks (`rake daily`, `fetch:*`, `import:*`, `esa:*`, `db:delete_polluted`,
 
 On `rake daily` end, production copies the local DB to an iCloud Drive path (`db_copy_to` in `config/environments/production.yml`) so other Macs can consume it read-only via `chiebukuro-mcp`. The single-file copy approach avoids iCloud uploading mid-stream WAL during parallel writes.
 
-The local `db/cloud_knowledge.db` is written by 5 parallel source threads; each thread's `do_import` closes its `Store` in `ensure` to flush WAL back to the main DB. `CloudKnowledgeDb::DbSyncer.sync(source:, destination:)` then runs `PRAGMA wal_checkpoint(TRUNCATE)` to merge and empty the source WAL, deletes stale `.db-wal` / `.db-shm` at the destination, and `FileUtils.cp`s the single `.db` file. iCloud propagates it to other Macs. The write host stays `MacBook-Air-M3` via host guard.
+The local `db/cloud_knowledge.db` is written by 4 parallel source threads; each thread's `do_import` closes its `Store` in `ensure` to flush WAL back to the main DB. `CloudKnowledgeDb::DbSyncer.sync(source:, destination:)` then runs `PRAGMA wal_checkpoint(TRUNCATE)` to merge and empty the source WAL, deletes stale `.db-wal` / `.db-shm` at the destination, and `FileUtils.cp`s the single `.db` file. iCloud propagates it to other Macs. The write host stays `MacBook-Air-M3` via host guard.
 
 Files: `lib/cloud_knowledge_db/db_syncer.rb`, `Rakefile` `:daily` tail (invoked only when `cfg['db_copy_to']` is set), `test/test_db_syncer.rb`.
 

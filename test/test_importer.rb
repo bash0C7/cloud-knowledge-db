@@ -3,26 +3,41 @@ require_relative 'test_helper'
 require 'cloud_knowledge_db/importer'
 
 class ImporterTest < Test::Unit::TestCase
+  SOURCES_CONFIG = {
+    'sources' => {
+      'en_blog' => { 'source' => 'test/en', 'expected_lang' => 'en' },
+      'ja_blog' => { 'tag_to_source' => { 'tag' => 'test/ja' }, 'expected_lang' => 'ja' }
+    }
+  }.freeze
+
   def setup
-    @importer = CloudKnowledgeDb::Importer.new
+    @importer = CloudKnowledgeDb::Importer.new(config: SOURCES_CONFIG)
+  end
+
+  def test_default_config_accepts_every_configured_source
+    importer = CloudKnowledgeDb::Importer.new
+    assert_false importer.source_lang.empty?
+    importer.source_lang.each_key do |source|
+      assert_not_match(/unknown_source/, importer.validate(content: 'hello world', source: source).to_s)
+    end
   end
 
   # --- unknown_source? ---
 
   def test_validate_rejects_unknown_source
-    reason = @importer.validate(content: 'hello world', source: 'aws/bogus')
+    reason = @importer.validate(content: 'hello world', source: 'test/bogus')
     assert_not_nil reason
     assert_match(/unknown_source/, reason)
   end
 
   def test_validate_accepts_known_official_source
-    reason = @importer.validate(content: 'hello world from aws', source: 'aws/blogs/news')
+    reason = @importer.validate(content: 'hello world from aws', source: 'test/en')
     assert_nil reason
   end
 
   def test_validate_accepts_known_classmethod_source
     body = 'これはclassmethodの日本語記事です。' * 10
-    reason = @importer.validate(content: body, source: 'aws/classmethod')
+    reason = @importer.validate(content: body, source: 'test/ja')
     assert_nil reason
   end
 
@@ -36,7 +51,7 @@ class ImporterTest < Test::Unit::TestCase
 
   def test_validate_rejects_content_with_replacement_char
     body = "What�s new in Git 2.54.0?"
-    reason = @importer.validate(content: body, source: 'gitlab/blogs/all')
+    reason = @importer.validate(content: body, source: 'test/en')
     assert_not_nil reason
     assert_match(/mojibake/, reason)
   end
@@ -54,7 +69,7 @@ class ImporterTest < Test::Unit::TestCase
     # issue but the row's data is still useful. Reject only when paired with
     # another red flag (language_mismatch, mojibake).
     body = '<h3 class="x">Heading</h3>' * 20 + 'English text describing the new feature in detail. ' * 30
-    reason = @importer.validate(content: body, source: 'gws/blogs/all')
+    reason = @importer.validate(content: body, source: 'test/en')
     assert_nil reason
   end
 
@@ -63,14 +78,14 @@ class ImporterTest < Test::Unit::TestCase
     # 4-17 pollution shape that we want to keep rejecting.
     body = '<h3 class="x">日本語の見出し</h3>' * 5 +
            'これは日本語訳のコンテンツです。本文がたくさん含まれています。' * 10
-    reason = @importer.validate(content: body, source: 'gws/blogs/all')
+    reason = @importer.validate(content: body, source: 'test/en')
     assert_not_nil reason
     assert_match(/language_mismatch/, reason)
   end
 
   def test_validate_passes_content_with_minimal_tags
     body = 'This is a paragraph of mostly prose. ' * 30 + '<a href="x">link</a>'
-    reason = @importer.validate(content: body, source: 'gws/blogs/all')
+    reason = @importer.validate(content: body, source: 'test/en')
     assert_nil reason
   end
 
@@ -96,20 +111,20 @@ class ImporterTest < Test::Unit::TestCase
 
   def test_validate_rejects_japanese_in_english_source
     body = 'AWSが、Amazon Bedrockを通じてClaude Opus 4.7をローンチしました。' * 5
-    reason = @importer.validate(content: body, source: 'aws/blogs/news')
+    reason = @importer.validate(content: body, source: 'test/en')
     assert_not_nil reason
     assert_match(/language_mismatch/, reason)
   end
 
   def test_validate_passes_english_in_english_source
     body = 'AWS announced today that Claude Opus is now available in Amazon Bedrock for production use.' * 3
-    reason = @importer.validate(content: body, source: 'aws/blogs/news')
+    reason = @importer.validate(content: body, source: 'test/en')
     assert_nil reason
   end
 
   def test_validate_rejects_english_only_in_japanese_source
     body = 'This is purely English content with no kana characters whatsoever in the body.' * 3
-    reason = @importer.validate(content: body, source: 'aws/classmethod')
+    reason = @importer.validate(content: body, source: 'test/ja')
     assert_not_nil reason
     assert_match(/language_mismatch/, reason)
   end

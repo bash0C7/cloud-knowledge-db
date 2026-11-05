@@ -1,16 +1,16 @@
 export const meta = {
   name: 'daily-pipeline',
-  description: 'cloud-knowledge-db daily ingestion: bookmark read → preflight → 5 parallel sources → finish',
+  description: 'cloud-knowledge-db daily ingestion: bookmark read → preflight → 4 parallel sources → finish',
   phases: [
     { title: 'Inspect',   detail: 'Read bookmark to determine SINCE/BEFORE window' },
     { title: 'Preflight', detail: 'Host/ollama check, esa conflict check, mark_started all sources' },
-    { title: 'Sources',   detail: 'Parallel fetch→import→esa for all 5 sources' },
+    { title: 'Sources',   detail: 'Parallel fetch→import→esa for all 4 sources' },
     { title: 'Finish',    detail: 'mark_completed, record_run, db sync, notify' },
   ],
 }
 
 const REPO        = '/Users/bash/dev/src/github.com/bash0C7/cloud-knowledge-db'
-const SOURCE_KEYS = ['aws_blog', 'gcp_blog', 'gws_blog', 'gitlab_blog', 'classmethod_blog']
+const SOURCE_KEYS = ['aws_blog', 'gcp_blog', 'gws_blog', 'classmethod_blog']
 
 // Stage 1: Read bookmark to determine SINCE/BEFORE
 phase('Inspect')
@@ -30,7 +30,7 @@ const dateWindow = await agent(
 Steps:
 1. Read ${REPO}/db/last_run.yml (use the Read tool or Bash cat — NOT sqlite3).
 2. Find the minimum last_completed_before value across all of these source keys:
-   aws_blog, gcp_blog, gws_blog, gitlab_blog, classmethod_blog.
+   aws_blog, gcp_blog, gws_blog, classmethod_blog.
    If ANY source is missing or has no last_completed_before entry, set since = BEFORE minus 1 day (do not use the other sources' values — any missing source overrides to yesterday).
 3. Get today's date in JST: run TZ=Asia/Tokyo date +%Y-%m-%d
 4. Return JSON: { since: "<min last_completed_before>", before: "<today JST>" }`,
@@ -97,7 +97,7 @@ if (startResult.status === 'error') {
 
 log('Preflight OK — starting parallel source agents')
 
-// Stage 3: Fan out 5 parallel pipeline:source agents
+// Stage 3: Fan out 4 parallel pipeline:source agents
 phase('Sources')
 
 const SOURCE_SCHEMA = {

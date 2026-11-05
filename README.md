@@ -2,7 +2,7 @@
 
 Orchestrator for daily ingestion of cloud platform official blogs into SQLite, esa, and chiebukuro-mcp.
 
-Collects AWS / Google Cloud / Google Workspace / GitLab official blogs (English) and classmethod.jp explainer articles (Japanese), stores the English originals as-is into SQLite, and posts a per-provider Japanese summary to esa using a local llama.cpp model. On-demand Japanese translation of English rows happens downstream in the MCP host agent (same pattern as `ruby-rdoc-collector`).
+Collects AWS / Google Cloud / Google Workspace official blogs (English) and classmethod.jp explainer articles (Japanese), stores the English originals as-is into SQLite, and posts a per-provider Japanese summary to esa using a local llama.cpp model. On-demand Japanese translation of English rows happens downstream in the MCP host agent (same pattern as `ruby-rdoc-collector`).
 
 ---
 
@@ -137,7 +137,7 @@ APP_ENV=test DIR=$DIR bundle exec rake import:aws_blog
 APP_ENV=test DIR=$DIR bundle exec rake esa:aws_blog   # no-op for classmethod_blog
 ```
 
-Source keys: `aws_blog`, `gcp_blog`, `gws_blog`, `gitlab_blog`, `classmethod_blog`.
+Source keys: `aws_blog`, `gcp_blog`, `gws_blog`, `classmethod_blog`.
 
 ---
 
@@ -165,7 +165,7 @@ Phase 2 (import)  MD → SQLite (content_hash UNIQUE — duplicates auto-skipped
         ↓
 Phase 3 (esa)    English MDs → local LLM one Japanese prose summary per article
                  → concatenated under `# YYYY-MM-DD <PROVIDER> まとめ` → esa API
-                 (official 4 sources; classmethod_blog is DB-only)
+                 (official 3 sources; classmethod_blog is DB-only)
 ```
 
 Sources run in parallel threads inside `rake daily` with per-phase `[timing] ...` logs and an overall `[timing] daily WALLCLOCK` line. A `Mutex`-guarded read-modify-write protects the two-phase `db/last_run.yml` bookmark.
@@ -183,8 +183,7 @@ Sources run in parallel threads inside `rake daily` with per-phase `[timing] ...
 | AWS News | `aws.amazon.com/blogs/aws/feed/` | rss | `aws/blogs/news` | en |
 | Google Cloud | `cloudblog.withgoogle.com/products/gcp/rss/` | rss | `gcp/blogs/products` | en |
 | Google Workspace | `feeds.feedburner.com/GoogleAppsUpdates` | rss | `gws/blogs/all` | en |
-| GitLab | `about.gitlab.com/atom.xml` | rss | `gitlab/blogs/all` | en |
-| classmethod.jp | `dev.classmethod.jp/feed/` | classmethod | `{aws,gcp,gws,gitlab}/classmethod` | ja |
+| classmethod.jp | `dev.classmethod.jp/feed/` | classmethod | `{aws,gcp,gws}/classmethod` | ja |
 
 `WHERE source LIKE 'aws/%'` covers all AWS-related records (official English + classmethod Japanese).
 

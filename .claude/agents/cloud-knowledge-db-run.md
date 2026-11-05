@@ -42,7 +42,7 @@ The prompt should name the intended task explicitly. Accepted forms:
 | `pipeline:source`        | `rake pipeline:source SOURCE=<key>`          | `SOURCE=<key> SINCE=YYYY-MM-DD BEFORE=YYYY-MM-DD`                  |
 | `pipeline:finish`        | `rake pipeline:finish`                       | `COMPLETED=<csv> FAILED=<csv> SINCE=YYYY-MM-DD BEFORE=YYYY-MM-DD`  |
 
-Source keys (as of the latest `config/sources.yml`): `aws_blog`, `gcp_blog`, `gws_blog`, `gitlab_blog`, `classmethod_blog`. Verify against current `rake -T` output if unsure.
+Source keys (as of the latest `config/sources.yml`): `aws_blog`, `gcp_blog`, `gws_blog`, `classmethod_blog`. Verify against current `rake -T` output if unsure.
 
 If the prompt names a task not in this list, stop and report — do not invent task names.
 
