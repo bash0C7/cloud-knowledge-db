@@ -8,6 +8,18 @@ class LlamaCppRunnerTest < Test::Unit::TestCase
     assert_equal 'qwen3.6-35b-a3b-iq2m', runner.instance_variable_get(:@model)
   end
 
+  def test_default_host_is_local_8080
+    original = ENV.delete('LLAMA_SERVER_HOST')
+    assert_equal 'http://127.0.0.1:8080', CloudKnowledgeDb::LlamaCppRunner.host
+  ensure
+    ENV['LLAMA_SERVER_HOST'] = original if original
+  end
+
+  def test_auth_headers_builds_bearer_from_key
+    assert_equal({ 'Authorization' => 'Bearer dummy-key' },
+                 CloudKnowledgeDb::LlamaCppRunner.auth_headers(key: 'dummy-key'))
+  end
+
   def test_ensure_available_raises_when_server_unreachable
     original = ENV['LLAMA_SERVER_HOST']
     ENV['LLAMA_SERVER_HOST'] = 'http://127.0.0.1:1'

@@ -27,14 +27,19 @@ bundle config set --local path 'vendor/bundle'
 bundle install
 ```
 
-**llama-server** (required for the daily esa summary — managed by the `pj-agent-marionette-ma` gem, not installed per-repo):
+**llama-server** (required for the daily esa summary — the launchd job `local.llama-server`, started with an API key):
 
 ```bash
-marionette-ma llm status        # confirm the "local" endpoint is healthy
-marionette-ma llm up local      # start it if not (idempotent)
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/health   # 200 when healthy
 ```
 
-`DailySummarizer` calls `http://127.0.0.1:8081/v1/chat/completions` (OpenAI-compatible, `chat_template_kwargs: {enable_thinking: false}`). Override the host via `LLAMA_SERVER_HOST=...`. This defaults to the MBA-local endpoint so the daily pipeline completes without the LAN or MBP.
+`DailySummarizer` calls `http://127.0.0.1:8080/v1/chat/completions` (OpenAI-compatible, `chat_template_kwargs: {enable_thinking: false}`). Override the host via `LLAMA_SERVER_HOST=...`.
+
+**llama-server API key** (macOS Keychain, service `cloud-knowledge-db-llama`, account `llama-server`):
+
+```bash
+security add-generic-password -s cloud-knowledge-db-llama -a llama-server -w
+```
 
 **esa API token** (macOS Keychain):
 

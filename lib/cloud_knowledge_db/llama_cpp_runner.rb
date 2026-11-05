@@ -1,18 +1,36 @@
 # frozen_string_literal: true
 require 'net/http'
+require 'open3'
 require 'json'
 require 'uri'
 
 module CloudKnowledgeDb
   # ollama 代替: llama.cpp (llama-server) の OpenAI 互換 /v1/chat/completions を叩く。
-  # 既定は MBA 上の常駐 local llama-server (127.0.0.1:8081) なので、MBA 単体で完結する。
+  # 既定は MBP 上の常駐 local llama-server (127.0.0.1:8080)。API key は Keychain
+  # (service cloud-knowledge-db-llama / account llama-server) から実行時に取得し Bearer で送る。
   # model: は OllamaRunner との interface 互換のために受け取るだけで、llama-server は
   # 1 プロセス = 1 モデルのため実際のリクエストボディには使わない(ログ用途のみ)。
   class LlamaCppRunner
     READ_TIMEOUT_SEC = 600
+    KEYCHAIN_SERVICE = 'cloud-knowledge-db-llama'
+    KEYCHAIN_ACCOUNT = 'llama-server'
 
     def self.host
-      ENV.fetch('LLAMA_SERVER_HOST', 'http://127.0.0.1:8081')
+      ENV.fetch('LLAMA_SERVER_HOST', 'http://127.0.0.1:8080')
+    end
+
+    def self.keychain_key
+      out, status = Open3.capture2('security', 'find-generic-password',
+                                   '-s', KEYCHAIN_SERVICE, '-a', KEYCHAIN_ACCOUNT, '-w')
+      unless status.success?
+        raise RuntimeError, "Keychain item not found (service=#{KEYCHAIN_SERVICE} account=#{KEYCHAIN_ACCOUNT})"
+      end
+
+      out.strip
+    end
+
+    def self.auth_headers(key: keychain_key)
+      { 'Authorization' => "Bearer #{key}" }
     end
 
     def self.ensure_available!
@@ -37,7 +55,7 @@ module CloudKnowledgeDb
     # @return [String] model response, stripped
     def execute(prompt)
       uri = URI.join(self.class.host, '/v1/chat/completions')
-      req = Net::HTTP::Post.new(uri, 'Content-Type' => 'application/json')
+      req = Net::HTTP::Post.new(uri, { 'Content-Type' => 'application/json' }.merge(self.class.auth_headers))
       req.body = JSON.generate(
         messages: [{ role: 'user', content: prompt }],
         chat_template_kwargs: { enable_thinking: false },

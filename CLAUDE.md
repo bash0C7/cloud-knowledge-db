@@ -6,7 +6,7 @@ Orchestrator for daily ingestion of AWS / Google Cloud / Google Workspace offici
 
 - **Language:** Ruby 4.0 (CRuby — Python absolutely prohibited)
 - **DB:** SQLite3 + sqlite-vec (FTS5 trigram + vec0 768-dim) — reuses `ruby-knowledge-store` schema unchanged
-- **LLM:** local llama-server (llama.cpp, Qwen3.6-35B-A3B IQ2_M on the MBA write host) via the OpenAI-compatible `/v1/chat/completions` for the daily esa summary. No per-article translation at ingest — English rows are stored as-is and the MCP host agent translates on demand at query time (same pattern as `ruby-rdoc-collector`).
+- **LLM:** local llama-server (llama.cpp, Qwen3.6-35B-A3B on the MBP write host) via the OpenAI-compatible `/v1/chat/completions` for the daily esa summary. No per-article translation at ingest — English rows are stored as-is and the MCP host agent translates on demand at query time (same pattern as `ruby-rdoc-collector`).
 - **Test:** test-unit xUnit (t-wada TDD)
 
 ## Architecture
@@ -117,7 +117,7 @@ Each consumer resolves `(provider, model)` at construction via `Runner.build`. C
 
 ### llama-server runtime
 
-The local model is served by **llama-server** (Homebrew `llama.cpp`) on the write host (MBA), managed by the `pj-agent-marionette-ma` gem's `llm` CLI — `marionette-ma llm up local` / `down local` / `status`, launchd label `local.llama-server-local`. `rake daily` requires it healthy (verify `GET /health` returns HTTP 200; `LlamaCppRunner.ensure_available!` checks this before any phase runs). A wedged or unreachable server hangs `summarize` until `LlamaCppRunner::READ_TIMEOUT_SEC` (600s); that failure is labelled `esa summarize failed` (not `esa post failed`) so debugging targets the LLM layer. Host is overridable via `LLAMA_SERVER_HOST` (default `http://127.0.0.1:8081`, i.e. MBA-local — the pipeline is designed to complete without depending on the LAN or MBP).
+The local model is served by **llama-server** (Homebrew `llama.cpp`) on the write host (MBP), launchd label `local.llama-server`, port 8080, API key required. `LlamaCppRunner` reads the key at call time from the Keychain (service `cloud-knowledge-db-llama`, account `llama-server`) and sends it as a Bearer token. `rake daily` requires the server healthy (verify `GET /health` returns HTTP 200; `LlamaCppRunner.ensure_available!` checks this before any phase runs). A wedged or unreachable server hangs `summarize` until `LlamaCppRunner::READ_TIMEOUT_SEC` (600s); that failure is labelled `esa summarize failed` (not `esa post failed`) so debugging targets the LLM layer. Host is overridable via `LLAMA_SERVER_HOST` (default `http://127.0.0.1:8080`, i.e. MBP-local).
 
 ## CLAUDE.md Contamination Guard
 
