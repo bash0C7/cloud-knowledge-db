@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.cloud-knowledge-db.daily</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/bash/.rbenv/shims/bundle</string>
+    <string>exec</string>
+    <string>rake</string>
+    <string>daily</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/bash/dev/src/github.com/bash0C7/cloud-knowledge-db</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>APP_ENV</key><string>production</string>
+    <key>PATH</key><string>/Users/bash/.rbenv/shims:/Users/bash/.rbenv/bin:/Users/bash/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>6</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key><string>/Users/bash/Library/Logs/cloud-knowledge-db-daily.log</string>
+  <key>StandardErrorPath</key><string>/Users/bash/Library/Logs/cloud-knowledge-db-daily.log</string>
+</dict>
+</plist>

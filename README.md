@@ -159,6 +159,16 @@ Source keys: `aws_blog`, `gcp_blog`, `gws_blog`, `classmethod_blog`.
 | `rake esa:delete IDS=...` | Hard-delete esa posts by ID list (host guard active, 2s sleep between calls) |
 | `rake smoke:rss_endpoints` | HEAD-check every configured feed URL |
 
+### Daily schedule
+
+`launchd/local.cloud-knowledge-db.daily.plist` runs `rake daily` (APP_ENV=production) every day at 06:30. Log: `~/Library/Logs/cloud-knowledge-db-daily.log`.
+
+```bash
+cp launchd/local.cloud-knowledge-db.daily.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.cloud-knowledge-db.daily.plist
+launchctl kickstart gui/$(id -u)/local.cloud-knowledge-db.daily   # run once now
+```
+
 ---
 
 ## 3-Phase Pipeline
